@@ -37,17 +37,93 @@ class FileManager:
                 
                 try:
                     # Lê o arquivo com AS IS e TO BE
+                    # O arquivo tem uma estrutura especial com multi-level headers:
+                    # Row 0: PN, AS IS, , TO BE, 
+                    # Row 1: , QME, MDR, QME, MDR
                     if file_path.endswith('.csv'):
-                        df = pd.read_csv(file_path)
+                        df_raw = pd.read_csv(file_path)
                     else:
-                        df = pd.read_excel(file_path)
+                        df_raw = pd.read_excel(file_path)
+                    
+                    print(f"Raw DataFrame head:\n{df_raw.head()}")
+                    
+                    # As primeira linha contém os nomes das colunas reais
+                    # Precisamos renomear as colunas de forma apropriada
+                    if len(df_raw) > 0:
+                        # Verifica se a primeira linha é o header secundário
+                        first_row = df_raw.iloc[0]
+                        
+                        # Se a primeira linha contém "QME", "MDR", é o header
+                        if "QME" in str(first_row.values) or "MDR" in str(first_row.values):
+                            # Pula a primeira linha (é o header real)
+                            df = df_raw.iloc[1:].reset_index(drop=True)
+                            
+                            # Renomeia as colunas baseado na estrutura conhecida
+                            # Unnamed: 0 = PN
+                            # AS IS = QME AS IS
+                            # Unnamed: 2 = MDR AS IS
+                            # TO BE = QME TO BE
+                            # Unnamed: 4 = MDR TO BE
+                            new_columns = ['PN', 'AS_IS_QME', 'AS_IS_MDR', 'TO_BE_QME', 'TO_BE_MDR']
+                            df.columns = new_columns[:len(df.columns)]
+                        else:
+                            df = df_raw.copy()
+                            # Se não tem o padrão esperado, tenta renomear baseado em posição
+                            if len(df.columns) >= 5:
+                                new_columns = ['PN', 'AS_IS_QME', 'AS_IS_MDR', 'TO_BE_QME', 'TO_BE_MDR']
+                                df.columns = new_columns[:len(df.columns)]
+                    else:
+                        df = df_raw.copy()
+                    
+                    # Remove linhas vazias
+                    df = df.dropna(subset=['PN'])
                     
                     qtd_linhas = len(df)
+                    
+                    # Informações detalhadas sobre o arquivo
+                    pn_examples = df['PN'].head(3).tolist() if 'PN' in df.columns else []
+                    
+                    # Calcula estatísticas para QME (somas) e MDR (valores distintos)
+                    stats = {}
+                    
+                    # AS IS QME - Total Sum
+                    if 'AS_IS_QME' in df.columns:
+                        try:
+                            as_is_qme_sum = pd.to_numeric(df['AS_IS_QME'], errors='coerce').sum()
+                            stats['AS_IS_QME_Total'] = int(as_is_qme_sum)
+                        except:
+                            stats['AS_IS_QME_Total'] = 0
+                    
+                    # AS IS MDR - Distinct Values
+                    if 'AS_IS_MDR' in df.columns:
+                        distinct_mdr = df['AS_IS_MDR'].dropna().unique().tolist()
+                        stats['AS_IS_MDR_Distinct'] = distinct_mdr
+                    
+                    # TO BE QME - Total Sum
+                    if 'TO_BE_QME' in df.columns:
+                        try:
+                            to_be_qme_sum = pd.to_numeric(df['TO_BE_QME'], errors='coerce').sum()
+                            stats['TO_BE_QME_Total'] = int(to_be_qme_sum)
+                        except:
+                            stats['TO_BE_QME_Total'] = 0
+                    
+                    # TO BE MDR - Distinct Values
+                    if 'TO_BE_MDR' in df.columns:
+                        distinct_mdr_tobe = df['TO_BE_MDR'].dropna().unique().tolist()
+                        stats['TO_BE_MDR_Distinct'] = distinct_mdr_tobe
+                    
                     status = {
                         "status": "success",
                         "filename": os.path.basename(file_path),
-                        "message": f"{qtd_linhas} linhas carregadas (AS IS + TO BE)."
+                        "message": f"{qtd_linhas} PNs carregados.",
+                        "details": {
+                            "rows": qtd_linhas,
+                            "columns": list(df.columns),
+                            "sample_pns": pn_examples,
+                            "stats": stats
+                        }
                     }
+                    
                     return status, df
                     
                 except Exception as e:

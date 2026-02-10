@@ -51,28 +51,44 @@
                         <label>Cidade Origem</label>
                         <input title="origem" type="text" id="origem">
                     </div>
-
                     <div class="form-group">
                         <label>Cidade Destino</label>
                         <input title="destino" type="text" id="destino">
                     </div>
-                    <div class="form-group">
-                        <label>Fornecedor (Auto)</label>
-                        <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>Estado (UF Auto)</label>
-                        <input title="uf" type="text" id="uf" class="input-small input-readonly" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label>Transportadora (Auto)</label>
-                        <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Veículo Atual (Auto)</label>
-                        <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
-                    </div>
+
+
+
+
+                     <div class="form-group">
+                            <label class="label-grey">🔍 Dados Complementares (Auto)</label>
+                            <p class="help-text">Preenchidos automaticamente via SAP:</p>
+                            
+                            <div class="mt-10">
+                                <label>Fornecedor</label>
+                                <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
+                            </div>
+                            
+                            <div class="mt-10">
+                                <label>Estado (UF)</label>
+                                <input title="uf" type="text" id="uf" class="input-small input-readonly" readonly>
+                            </div>
+                            
+                            <div class="mt-10">
+                                <label>Transportadora</label>
+                                <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
+                            </div>
+                            
+                            <div class="mt-10">
+                                <label>Veículo Atual</label>
+                                <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
+                            </div>
+                            
+                        </div>
+
+
+
+
+
                     
                    <div class="comparison-box">
                         <div class="form-group comparison-left">
@@ -84,68 +100,25 @@
                                     📄 Carregar Arquivo (Excel/CSV)
                                 </button>
                             </div>
-                            <div id="asis-status" class="status-success"></div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="label-red">🚀 Parâmetros Adicionais</label>
-                            <p class="help-text">Ajustes personalizados (opcional):</p>
-                            <div>
-                                <label>QME Padrão TO BE (se não especificado no arquivo)</label>
-                                <input type="number" id="qme_tobe" placeholder="Ex: 150" class="input-tobe">
+                            
+                            <div class="mt-20">
+                                <label class="label-red">🚀 Parâmetros Adicionais</label>
+                                <p class="help-text">Ajustes personalizados (opcional):</p>
+                                <div>
+                                    <label>QME Padrão TO BE (se não especificado no arquivo)</label>
+                                    <input type="number" id="qme_tobe" placeholder="Ex: 150" class="input-tobe">
+                                </div>
                             </div>
                         </div>
+
+                        <div id="asis-status" class="status-success mt-15"></div>
+
                     </div>
-
-
 
                 </div>
 
                 <button class="submit-btn" onclick="runSimulation()">Executar Simulação</button>
                 <div class="clearfix"></div>
-                
-                <!-- Results Section -->
-                <div id="results-section">
-                    <h3 class="section-title">Resultados da Simulação</h3>
-                    
-                    <div class="results-summary">
-                        <div class="summary-grid">
-                            <div>
-                                <strong>Total de Linhas:</strong>
-                                <span id="summary-rows" class="summary-value summary-value-red">0</span>
-                            </div>
-                            <div>
-                                <strong>Economia Total:</strong>
-                                <span id="summary-savings" class="summary-value summary-value-green">R$ 0</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="table-wrapper">
-                        <table id="results-table">
-                            <thead>
-                                <tr>
-                                    <th class="th-left">Linha</th>
-                                    <th class="th-left">PN</th>
-                                    <th class="th-center">QME AS IS</th>
-                                    <th class="th-center">QME TO BE</th>
-                                    <th class="th-center">Vol AS IS</th>
-                                    <th class="th-center">Vol TO BE</th>
-                                    <th class="th-center">Economia</th>
-                                    <th class="th-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="results-body">
-                                <!-- Results will be inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <button class="submit-btn submit-btn-spacing" onclick="exportResults()">
-                        📊 Exportar Resultados
-                    </button>
-                    <div class="clearfix"></div>
-                </div>
             </div>
         </div>
 
@@ -167,12 +140,57 @@
 
         <div id="mod-dash" class="module">
             <div class="card">
-                <h3 class="section-title">Dashboard - Resultados Consolidados</h3>
+                <!-- <h3 class="section-title">Dashboard - Resultados Consolidados</h3> -->
                 
                 <div id="dashboard-content">
-                    <p class="dashboard-placeholder">
+                    <p class="dashboard-placeholder" id="dashboard-placeholder">
                         Execute simulações nos módulos anteriores para ver os resultados consolidados aqui.
                     </p>
+                    
+                    <!-- Simulation Results Section -->
+                    <div id="dashboard-results-section" >
+                        <h3 class="section-title">Resultados da Simulação</h3>
+                        
+                        <div class="results-summary">
+                            <div class="summary-grid">
+                                <div>
+                                    <strong>Total de PNs:</strong>
+                                    <span id="dashboard-summary-rows" class="summary-value summary-value-red">0</span>
+                                </div>
+                                <div>
+                                    <strong>Economia Total:</strong>
+                                    <span id="dashboard-summary-savings" class="summary-value summary-value-green">R$ 0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-wrapper">
+                            <table id="dashboard-results-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-left">Linha</th>
+                                        <th class="th-left">PN</th>
+                                        <th class="th-center">QME AS IS</th>
+                                        <th class="th-center">MDR AS IS</th>
+                                        <th class="th-center">QME TO BE</th>
+                                        <th class="th-center">MDR TO BE</th>
+                                        <th class="th-center">Vol AS IS</th>
+                                        <th class="th-center">Vol TO BE</th>
+                                        <th class="th-center">Economia</th>
+                                        <th class="th-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-results-body">
+                                    <!-- Results will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <button class="submit-btn submit-btn-spacing" onclick="exportResults()">
+                            📊 Exportar Resultados
+                        </button>
+                        <div class="clearfix"></div>
+                    </div>
                     
                     <!-- Dashboard charts and summary will be added here -->
                     <div title="dashboard-summary" id="dashboard-summary" class="hidden">

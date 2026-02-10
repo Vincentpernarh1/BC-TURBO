@@ -14,7 +14,7 @@ function switchTab(tabName) {
     if(tabName === 'qme') {
         document.querySelector('#mod-qme').classList.add('active');
         document.querySelectorAll('.nav-item')[0].classList.add('active');
-        navBar.classList.remove('show'); // Hide nav-bar
+        navBar.classList.remove('show'); // Hide nav-bar show
     } else if(tabName === 'freq') {
         document.querySelector('#mod-freq').classList.add('active');
         document.querySelectorAll('.nav-item')[1].classList.add('active');
@@ -91,8 +91,11 @@ function runSimulation() {
             return;
         }
         
-        // Display results
+        // Display results in dashboard
         displayResults(response);
+        
+        // Switch to dashboard tab automatically
+        switchTab('dash');
     });
 }
 
@@ -111,8 +114,48 @@ function importASIS() {
         const statusDiv = document.getElementById('asis-status');
         
         if (result.status === 'success') {
-            statusDiv.innerText = `✅ ${result.filename} - ${result.message}`;
+            let detailsMsg = `<strong>${result.filename}</strong><br>${result.message}<br>`;
+            
+            if (result.details && result.details.stats) {
+                const stats = result.details.stats;
+                
+                detailsMsg += '<div style="margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 5px;">';
+                detailsMsg += '<strong>📊 Resumo dos Dados:</strong><br>';
+                
+                // AS IS Section
+                detailsMsg += '<div style="margin-top: 8px;">';
+                detailsMsg += '<strong style="color: #0066cc;">AS IS:</strong><br>';
+                if (stats.AS_IS_QME_Total !== undefined) {
+                    detailsMsg += `&nbsp;&nbsp;• QME Total: <strong>${stats.AS_IS_QME_Total.toLocaleString('pt-BR')}</strong><br>`;
+                }
+                if (stats.AS_IS_MDR_Distinct && stats.AS_IS_MDR_Distinct.length > 0) {
+                    detailsMsg += `&nbsp;&nbsp;• MDR Distintos: <strong>${stats.AS_IS_MDR_Distinct.length}</strong><br>`;
+                }
+                detailsMsg += '</div>';
+                
+                // TO BE Section
+                detailsMsg += '<div style="margin-top: 8px;">';
+                detailsMsg += '<strong style="color: #cc6600;">TO BE:</strong><br>';
+                if (stats.TO_BE_QME_Total !== undefined) {
+                    detailsMsg += `&nbsp;&nbsp;• QME Total: <strong>${stats.TO_BE_QME_Total.toLocaleString('pt-BR')}</strong><br>`;
+                }
+                if (stats.TO_BE_MDR_Distinct && stats.TO_BE_MDR_Distinct.length > 0) {
+                    detailsMsg += `&nbsp;&nbsp;• MDR Distintos: <strong>${stats.TO_BE_MDR_Distinct.length}</strong><br>`;
+                }
+                detailsMsg += '</div>';
+                
+                detailsMsg += '</div>';
+            }
+            
+            // Sample PNs
+            if (result.details && result.details.sample_pns && result.details.sample_pns.length > 0) {
+                detailsMsg += `<div style="margin-top: 8px; font-size: 0.85rem; color: #666;">📦 Exemplos: ${result.details.sample_pns.join(', ')}</div>`;
+            }
+            
+            statusDiv.innerHTML = `✅ ${detailsMsg}`;
             statusDiv.style.color = 'green';
+            statusDiv.style.fontSize = '0.9rem';
+            statusDiv.style.marginTop = '10px';
         } else if (result.status === 'error') {
             statusDiv.innerText = `❌ Erro: ${result.message}`;
             statusDiv.style.color = 'red';
@@ -131,15 +174,19 @@ function importASIS() {
 }
 
 function displayResults(response) {
-    // Show results section
-    document.getElementById('results-section').style.display = 'block';
+    // Hide placeholder and show results section in dashboard
+    const placeholder = document.getElementById('dashboard-placeholder');
+    const resultsSection = document.getElementById('dashboard-results-section');
     
-    // Update summary
-    document.getElementById('summary-rows').innerText = response.summary.total_rows;
-    document.getElementById('summary-savings').innerText = 'R$ ' + response.summary.total_savings.toLocaleString('pt-BR');
+    if (placeholder) placeholder.style.display = 'none';
+    if (resultsSection) resultsSection.style.display = 'block';
     
-    // Populate results table
-    const tbody = document.getElementById('results-body');
+    // Update summary in dashboard
+    document.getElementById('dashboard-summary-rows').innerText = response.summary.total_rows;
+    document.getElementById('dashboard-summary-savings').innerText = 'R$ ' + response.summary.total_savings.toLocaleString('pt-BR');
+    
+    // Populate results table in dashboard
+    const tbody = document.getElementById('dashboard-results-body');
     tbody.innerHTML = ''; // Clear previous results
     
     response.results.forEach(row => {
@@ -150,7 +197,9 @@ function displayResults(response) {
             <td style="padding: 8px;">${row.row}</td>
             <td style="padding: 8px;">${row.pn}</td>
             <td style="padding: 8px; text-align: center;">${row.qme_asis}</td>
+            <td style="padding: 8px; text-align: center;">${row.mdr_asis || '-'}</td>
             <td style="padding: 8px; text-align: center;">${row.qme_tobe}</td>
+            <td style="padding: 8px; text-align: center;">${row.mdr_tobe || '-'}</td>
             <td style="padding: 8px; text-align: center;">${row.vol_asis}</td>
             <td style="padding: 8px; text-align: center;">${row.vol_tobe}</td>
             <td style="padding: 8px; text-align: center; color: green; font-weight: bold;">R$ ${row.savings.toLocaleString('pt-BR')}</td>
@@ -165,9 +214,6 @@ function displayResults(response) {
         
         tbody.appendChild(tr);
     });
-    
-    // Scroll to results
-    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
 }
 
 function exportResults() {

@@ -29,26 +29,52 @@ class QMECalculator:
                 "message": "Carregue o arquivo AS IS/TO BE antes de simular!"
             }
 
-        # AQUI ENTRARÁ O CÁLCULO REAL USANDO O self.asis_data E OS INPUTS
-        # Por enquanto, retornamos mock data para teste visual
-        
+        # Processa cada linha do arquivo AS IS/TO BE
         results = []
         for idx, row in self.asis_data.iterrows():
-            # Mock calculation - será substituído pela lógica real
+            # Extrai os dados de cada linha
+            pn = str(row.get('PN', f'PN-{idx+1}'))
+            
+            # AS IS data
+            qme_asis = row.get('AS_IS_QME', 0)
+            mdr_asis = row.get('AS_IS_MDR', '')
+            
+            # TO BE data - usa o valor do arquivo, ou o valor padrão do input se não especificado
+            qme_tobe = row.get('TO_BE_QME', data.get('qme_tobe', 0))
+            mdr_tobe = row.get('TO_BE_MDR', '')
+            
+            # Converte para numérico se necessário
+            try:
+                qme_asis = int(qme_asis) if qme_asis else 0
+                qme_tobe = int(qme_tobe) if qme_tobe else 0
+            except:
+                qme_asis = 0
+                qme_tobe = 0
+            
+            # Cálculos de exemplo (você pode ajustar conforme a lógica real)
+            # Aqui estamos fazendo um cálculo simples para demonstração
+            vol_asis = 10  # Volume calculado AS IS (você pode adicionar lógica real)
+            vol_tobe = 8   # Volume calculado TO BE (você pode adicionar lógica real)
+            savings = (vol_asis - vol_tobe) * 100  # Economia fictícia
+            
+            status = "OK" if qme_tobe > qme_asis else "Sem melhoria"
+            
             results.append({
                 "row": idx + 1,
-                "pn": row.get('PN', f'PN-{idx+1}'),
-                "qme_asis": row.get('QME_ASIS', 100),
-                "qme_tobe": row.get('QME_TOBE', data.get('qme_tobe', 150)),
-                "vol_asis": row.get('VOL_ASIS', 10),
-                "vol_tobe": 0,  # Será calculado
-                "savings": 0,  # Será calculado
-                "status": "OK"
+                "pn": pn,
+                "qme_asis": qme_asis,
+                "mdr_asis": mdr_asis,
+                "qme_tobe": qme_tobe,
+                "mdr_tobe": mdr_tobe,
+                "vol_asis": vol_asis,
+                "vol_tobe": vol_tobe,
+                "savings": savings,
+                "status": status
             })
         
         response = {
             "status": "success",
-            "message": f"Simulação concluída para {len(results)} linhas.",
+            "message": f"Simulação concluída para {len(results)} PNs.",
             "results": results,
             "summary": {
                 "total_rows": len(results),
@@ -56,7 +82,7 @@ class QMECalculator:
             }
         }
         
-        self.last_results = results
+        self.last_results = response
         return response
     
     def get_last_results(self):

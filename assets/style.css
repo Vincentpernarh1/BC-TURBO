@@ -66,7 +66,7 @@ body {
     font-size: 0.85rem;
     cursor: pointer;
     border-radius: 4px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     color: var(--dark-grey);
 }
 
@@ -108,7 +108,7 @@ body {
 /* MAIN CONTENT AREA */
 .container { 
     padding: 20px; 
-    max-width: 1250px; 
+    max-width: 1850px; 
     margin: 0 auto; 
 }
 
@@ -148,6 +148,10 @@ body {
     margin-bottom: 5px; 
 }
 
+
+#dashboard-results-section{
+    display: none;
+}
 .form-group input, .form-group select {
     padding: 8px; 
     border: 1px solid #ddd; 
@@ -337,4 +341,17 @@ body {
 
 .hidden {
     display: none;
+}
+
+/* Utility Classes */
+.mt-10 {
+    margin-top: 10px;
+}
+
+.mt-15 {
+    margin-top: 15px;
+}
+
+.mt-20 {
+    margin-top: 20px;
 }
