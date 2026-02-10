@@ -17,18 +17,23 @@
     </div>
 
     <div class="nav-bar" id="nav-bar">
-        <div class="nav-item active" onclick="switchTab('qme')">1. Aumento de QME</div>
+        <div class="nav-item" onclick="switchTab('qme')">1. Aumento de QME</div>
         <div class="nav-item" onclick="switchTab('freq')">2. Redução Frequência</div>
         <div class="nav-item" onclick="switchTab('emb')">3. Alt. Embalagem</div>
-        <div class="nav-item" onclick="switchTab('dash')">4. Dashboard</div>
+        <div class="nav-item active" onclick="switchTab('dash')">4. Dashboard</div>
     </div>
 
     <div class="container">
         
-        <div id="mod-qme" class="module active">
+        <div id="mod-qme" class="module">
             <div class="card">
+
+                <div class="to-bar">
                 <button class="btn-back" onclick="switchTab('dash')">← Voltar ao Dashboard</button>
-                <h3 class="section-title">Parâmetros de Simulação: Aumento de QME</h3>
+                <h2 class="section-title">Aumento de QME</h2>
+                <h3 class="section-title">Parâmetros de Simulação</h3>
+                </div>
+               
                 
                 <div class="input-grid">
                     <div class="form-group">
@@ -40,7 +45,7 @@
                         <input title="cod_sap" type="text" id="cod_sap" onchange="lookupSAPData()">
                     </div>
                     <div class="form-group">
-                        <label>Planta Destino</label>
+                        <label>Planta </label>
                         <select title="planta" id="planta">
                             <option>Betim</option>
                             <option>Porto Real</option>
@@ -56,62 +61,64 @@
                         <input title="destino" type="text" id="destino">
                     </div>
 
+                    <div class="form-group">
+                        <label>Fornecedor <span class="label-grey">(Auto)</span></label>
+                        <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>UF <span class="label-grey">(Auto)</span></label>
+                        <input title="uf" type="text" id="uf" class="input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Transportadora <span class="label-grey">(Auto)</span></label>
+                        <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Veículo Atual <span class="label-grey">(Auto)</span></label>
+                        <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
+                    </div>
 
-
-
-                     <div class="form-group">
-                            <label class="label-grey">🔍 Dados Complementares (Auto)</label>
-                            <p class="help-text">Preenchidos automaticamente via SAP:</p>
-                            
-                            <div class="mt-10">
-                                <label>Fornecedor</label>
-                                <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
-                            </div>
-                            
-                            <div class="mt-10">
-                                <label>Estado (UF)</label>
-                                <input title="uf" type="text" id="uf" class="input-small input-readonly" readonly>
-                            </div>
-                            
-                            <div class="mt-10">
-                                <label>Transportadora</label>
-                                <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
-                            </div>
-                            
-                            <div class="mt-10">
-                                <label>Veículo Atual</label>
-                                <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
-                            </div>
-                            
-                        </div>
-
-
-
-
-
-                    
                    <div class="comparison-box">
-                        <div class="form-group comparison-left">
-                            <label class="label-grey">📊 Dados de Simulação</label>
-                            <p class="help-text">Importe arquivo com AS IS e TO BE:</p>
-                            
-                            <div class="flex-center">
-                                <button class="btn-folder btn-folder-full" onclick="importASIS()">
-                                    📄 Carregar Arquivo (Excel/CSV)
-                                </button>
-                            </div>
-                            
-                            <div class="mt-20">
-                                <label class="label-red">🚀 Parâmetros Adicionais</label>
-                                <p class="help-text">Ajustes personalizados (opcional):</p>
-                                <div>
-                                    <label>QME Padrão TO BE (se não especificado no arquivo)</label>
-                                    <input type="number" id="qme_tobe" placeholder="Ex: 150" class="input-tobe">
+                        <div class="comparison-box-inner">
+                            <div class="form-group comparison-left">
+                                <label class="label-grey">📊 Dados de Simulação</label>
+                                <p class="help-text">Importe arquivo com AS IS e TO BE:</p>
+                                
+                                <div class="flex-center">
+                                    <button class="btn-folder btn-folder-full" onclick="importASIS()">
+                                        📄 Carregar Arquivo (Excel/CSV)
+                                    </button>
+                                </div>
+                                
+                                <div class="mt-20">
+                                    <label class="label-red">🚀 Parâmetros Adicionais</label>
+                                    <p class="help-text">Ajustes personalizados (opcional):</p>
+                                    <div>
+                                        <label>QME Padrão TO BE (se não especificado no arquivo)</label>
+                                        <input type="number" id="qme_tobe" placeholder="Ex: 150" class="input-tobe">
+                                    </div>
                                 </div>
                             </div>
+
+                            <div class="form-group">
+                                <label class="label-grey">📋 Status do Arquivo</label>
+                                <p class="help-text">Informações sobre o arquivo importado:</p>
+                                <div id="asis-status" class="asis-status-container" >
+                            <div class="asis-column as-is">
+                                <h4>AS IS</h4>
+                                <div id="asis-details" class="asis-details"></div>
+                            </div>
+                            <div class="asis-column to-be">
+                                <h4>TO BE</h4>
+                                <div id="tobe-details" class="asis-details"></div>
+                            </div>
+                        </div>
+                        <div id="asis-file-info" class="asis-file-info" ></div>
+                        <div id="asis-sample" class="asis-sample" ></div>
+                            </div>
                         </div>
 
-                        <div id="asis-status" class="status-success mt-15"></div>
+                        
 
                     </div>
 
@@ -124,8 +131,111 @@
 
         <div id="mod-freq" class="module">
             <div class="card">
+              
+                 <div class="to-bar">
                 <button class="btn-back" onclick="switchTab('dash')">← Voltar ao Dashboard</button>
-                <h3 class="section-title">Redução de Frequência</h3>
+                <h2 class="section-title">Redução de Frequência</h2>
+                <h3 class="section-title">Parâmetros de Simulação</h3>
+                </div>
+               
+                
+                <div class="input-grid">
+                    <div class="form-group">
+                        <label>Código do Projeto</label>
+                        <input title="cod_projeto" type="text" id="cod_projeto" placeholder="Ex: PROJ-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Código SAP / IMS</label>
+                        <input title="cod_sap" type="text" id="cod_sap" onchange="lookupSAPData()">
+                    </div>
+                    <div class="form-group">
+                        <label>Planta </label>
+                        <select title="planta" id="planta">
+                            <option>Betim</option>
+                            <option>Porto Real</option>
+                            <option>Goiana</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cidade Origem</label>
+                        <input title="origem" type="text" id="origem">
+                    </div>
+                    <div class="form-group">
+                        <label>Cidade Destino</label>
+                        <input title="destino" type="text" id="destino">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fornecedor <span class="label-grey">(Auto)</span></label>
+                        <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>UF <span class="label-grey">(Auto)</span></label>
+                        <input title="uf" type="text" id="uf" class="input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Transportadora <span class="label-grey">(Auto)</span></label>
+                        <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Veículo Atual <span class="label-grey">(Auto)</span></label>
+                        <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
+                    </div>
+
+                   <div class="comparison-box">
+                        <div class="comparison-box-inner">
+                            <div class="form-group comparison-left">
+                                <label class="label-grey">📊 Dados de Simulação</label>
+                                <p class="help-text">Importe arquivo com AS IS e TO BE:</p>
+                                
+                                <div class="flex-center">
+                                    <button class="btn-folder btn-folder-full" onclick="importASIS()">
+                                        📄 Carregar Arquivo (Excel/CSV)
+                                    </button>
+                                </div>
+                                
+                                <div class="mt-20">
+                                    <label class="label-red">🚀 Parâmetros Adicionais</label>
+                                    <p class="help-text">Ajustes personalizados (opcional):</p>
+                                    <div>
+                                        <label>QME Padrão TO BE (se não especificado no arquivo)</label>
+                                        <input type="number" id="qme_tobe" placeholder="Ex: 150" class="input-tobe">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="label-grey">📋 Status do Arquivo</label>
+                                <p class="help-text">Informações sobre o arquivo importado:</p>
+                                <div id="asis-status" class="asis-status-container" >
+                            <div class="asis-column as-is">
+                                <h4>AS IS</h4>
+                                <div id="asis-details" class="asis-details"></div>
+                            </div>
+                            <div class="asis-column to-be">
+                                <h4>TO BE</h4>
+                                <div id="tobe-details" class="asis-details"></div>
+                            </div>
+                        </div>
+                        <div id="asis-file-info" class="asis-file-info" ></div>
+                        <div id="asis-sample" class="asis-sample" ></div>
+                            </div>
+                        </div>
+
+                        
+
+                    </div>
+
+                </div>
+
+                <button class="submit-btn" onclick="runSimulation()">Executar Simulação</button>
+                <div class="clearfix"></div>
+
+
+
+
+
+
                 <p>Módulo em desenvolvimento...</p>
             </div>
         </div>
@@ -138,7 +248,7 @@
             </div>
         </div>
 
-        <div id="mod-dash" class="module">
+        <div id="mod-dash" class="module active">
             <div class="card">
                 <!-- <h3 class="section-title">Dashboard - Resultados Consolidados</h3> -->
                 

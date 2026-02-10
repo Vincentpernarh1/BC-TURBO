@@ -45,7 +45,6 @@ class FileManager:
                     else:
                         df_raw = pd.read_excel(file_path)
                     
-                    print(f"Raw DataFrame head:\n{df_raw.head()}")
                     
                     # As primeira linha contém os nomes das colunas reais
                     # Precisamos renomear as colunas de forma apropriada
@@ -81,7 +80,7 @@ class FileManager:
                     qtd_linhas = len(df)
                     
                     # Informações detalhadas sobre o arquivo
-                    pn_examples = df['PN'].head(3).tolist() if 'PN' in df.columns else []
+                    pn_examples = df['PN'].head(5).tolist() if 'PN' in df.columns else []
                     
                     # Calcula estatísticas para QME (somas) e MDR (valores distintos)
                     stats = {}

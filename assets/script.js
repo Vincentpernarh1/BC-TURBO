@@ -14,19 +14,19 @@ function switchTab(tabName) {
     if(tabName === 'qme') {
         document.querySelector('#mod-qme').classList.add('active');
         document.querySelectorAll('.nav-item')[0].classList.add('active');
-        navBar.classList.remove('show'); // Hide nav-bar show
+        navBar.classList.add('hide'); // Hide nav-bar
     } else if(tabName === 'freq') {
         document.querySelector('#mod-freq').classList.add('active');
         document.querySelectorAll('.nav-item')[1].classList.add('active');
-        navBar.classList.remove('show'); // Hide nav-bar
+        navBar.classList.add('hide'); // Hide nav-bar
     } else if(tabName === 'emb') {
         document.querySelector('#mod-emb').classList.add('active');
         document.querySelectorAll('.nav-item')[2].classList.add('active');
-        navBar.classList.remove('show'); // Hide nav-bar
+        navBar.classList.add('hide'); // Hide nav-bar
     } else if(tabName === 'dash') {
         document.querySelector('#mod-dash').classList.add('active');
         document.querySelectorAll('.nav-item')[3].classList.add('active');
-        navBar.classList.add('show'); // Show nav-bar on dashboard
+        navBar.classList.remove('hide'); // Show nav-bar on dashboard
     }
 }
 
@@ -112,64 +112,71 @@ function importASIS() {
     window.pywebview.api.import_asis_file().then(result => {
         console.log('API response:', result);
         const statusDiv = document.getElementById('asis-status');
+        const fileInfo = document.getElementById('asis-file-info');
+        const sampleDiv = document.getElementById('asis-sample');
+        const asisDetails = document.getElementById('asis-details');
+        const tobeDetails = document.getElementById('tobe-details');
         
         if (result.status === 'success') {
-            let detailsMsg = `<strong>${result.filename}</strong><br>${result.message}<br>`;
+            // Show the status container
+            statusDiv.style.display = 'grid';
+            fileInfo.style.display = 'block';
+            
+            // File info
+            fileInfo.innerHTML = `✅ <strong>${result.filename}</strong> - ${result.message}`;
             
             if (result.details && result.details.stats) {
                 const stats = result.details.stats;
                 
-                detailsMsg += '<div style="margin-top: 10px; padding: 10px; background: #f0f8ff; border-radius: 5px;">';
-                detailsMsg += '<strong>📊 Resumo dos Dados:</strong><br>';
-                
                 // AS IS Section
-                detailsMsg += '<div style="margin-top: 8px;">';
-                detailsMsg += '<strong style="color: #0066cc;">AS IS:</strong><br>';
+                let asisMsg = '';
                 if (stats.AS_IS_QME_Total !== undefined) {
-                    detailsMsg += `&nbsp;&nbsp;• QME Total: <strong>${stats.AS_IS_QME_Total.toLocaleString('pt-BR')}</strong><br>`;
+                    asisMsg += `• QME Total: <strong>${stats.AS_IS_QME_Total.toLocaleString('pt-BR')}</strong><br>`;
                 }
                 if (stats.AS_IS_MDR_Distinct && stats.AS_IS_MDR_Distinct.length > 0) {
-                    detailsMsg += `&nbsp;&nbsp;• MDR Distintos: <strong>${stats.AS_IS_MDR_Distinct.length}</strong><br>`;
+                    asisMsg += `• MDR Distintos: <strong>${stats.AS_IS_MDR_Distinct.length}</strong><br>`;
                 }
-                detailsMsg += '</div>';
+                asisDetails.innerHTML = asisMsg;
                 
                 // TO BE Section
-                detailsMsg += '<div style="margin-top: 8px;">';
-                detailsMsg += '<strong style="color: #cc6600;">TO BE:</strong><br>';
+                let tobeMsg = '';
                 if (stats.TO_BE_QME_Total !== undefined) {
-                    detailsMsg += `&nbsp;&nbsp;• QME Total: <strong>${stats.TO_BE_QME_Total.toLocaleString('pt-BR')}</strong><br>`;
+                    tobeMsg += `• QME Total: <strong>${stats.TO_BE_QME_Total.toLocaleString('pt-BR')}</strong><br>`;
                 }
                 if (stats.TO_BE_MDR_Distinct && stats.TO_BE_MDR_Distinct.length > 0) {
-                    detailsMsg += `&nbsp;&nbsp;• MDR Distintos: <strong>${stats.TO_BE_MDR_Distinct.length}</strong><br>`;
+                    tobeMsg += `• MDR Distintos: <strong>${stats.TO_BE_MDR_Distinct.length}</strong><br>`;
                 }
-                detailsMsg += '</div>';
-                
-                detailsMsg += '</div>';
+                tobeDetails.innerHTML = tobeMsg;
             }
             
             // Sample PNs
             if (result.details && result.details.sample_pns && result.details.sample_pns.length > 0) {
-                detailsMsg += `<div style="margin-top: 8px; font-size: 0.85rem; color: #666;">📦 Exemplos: ${result.details.sample_pns.join(', ')}</div>`;
+                sampleDiv.style.display = 'block';
+                sampleDiv.innerHTML = `📦 Exemplos de PNs: ${result.details.sample_pns.join(', ')}`;
             }
-            
-            statusDiv.innerHTML = `✅ ${detailsMsg}`;
-            statusDiv.style.color = 'green';
-            statusDiv.style.fontSize = '0.9rem';
-            statusDiv.style.marginTop = '10px';
         } else if (result.status === 'error') {
-            statusDiv.innerText = `❌ Erro: ${result.message}`;
-            statusDiv.style.color = 'red';
+            statusDiv.style.display = 'none';
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `❌ Erro: ${result.message}`;
+            fileInfo.style.color = 'red';
         } else if (result.status === 'cancel') {
-            statusDiv.innerText = '⚠️ Seleção cancelada';
-            statusDiv.style.color = 'orange';
+            statusDiv.style.display = 'none';
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = '⚠️ Seleção cancelada';
+            fileInfo.style.color = 'orange';
         } else {
-            statusDiv.innerText = '';
+            statusDiv.style.display = 'none';
+            fileInfo.style.display = 'none';
+            sampleDiv.style.display = 'none';
         }
     }).catch(error => {
         console.error('Error calling API:', error);
         const statusDiv = document.getElementById('asis-status');
-        statusDiv.innerText = `❌ Erro: ${error}`;
-        statusDiv.style.color = 'red';
+        const fileInfo = document.getElementById('asis-file-info');
+        statusDiv.style.display = 'none';
+        fileInfo.style.display = 'block';
+        fileInfo.innerHTML = `❌ Erro: ${error}`;
+        fileInfo.style.color = 'red';
     });
 }
 
