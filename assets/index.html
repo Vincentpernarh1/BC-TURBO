@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BC Turbo - Stellantis/DHL</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="header">
+        <div class="brand">BC TURBO <span class="brand-divider">| Stellantis</span></div>
+        <div class="folder-controls">
+            <button class="btn-folder" onclick="selectDB()">📂 Database Folder: <span id="lbl-db">Not Selected</span></button>
+            <button class="btn-folder" onclick="selectResult()">📂 Result Folder: <span id="lbl-res">Not Selected</span></button>
+        </div>
+    </div>
+
+    <div class="nav-bar" id="nav-bar">
+        <div class="nav-item active" onclick="switchTab('qme')">1. Aumento de QME</div>
+        <div class="nav-item" onclick="switchTab('freq')">2. Redução Frequência</div>
+        <div class="nav-item" onclick="switchTab('emb')">3. Alt. Embalagem</div>
+        <div class="nav-item" onclick="switchTab('dash')">4. Dashboard</div>
+    </div>
+
+    <div class="container">
+        
+        <div id="mod-qme" class="module active">
+            <div class="card">
+                <button class="btn-back" onclick="switchTab('dash')">← Voltar ao Dashboard</button>
+                <h3 class="section-title">Parâmetros de Simulação: Aumento de QME</h3>
+                
+                <div class="input-grid">
+                    <div class="form-group">
+                        <label>Código do Projeto</label>
+                        <input title="cod_projeto" type="text" id="cod_projeto" placeholder="Ex: PROJ-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Código SAP / IMS</label>
+                        <input title="cod_sap" type="text" id="cod_sap" onchange="lookupSAPData()">
+                    </div>
+                    <div class="form-group">
+                        <label>Planta Destino</label>
+                        <select title="planta" id="planta">
+                            <option>Betim</option>
+                            <option>Porto Real</option>
+                            <option>Goiana</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cidade Origem</label>
+                        <input title="origem" type="text" id="origem">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cidade Destino</label>
+                        <input title="destino" type="text" id="destino">
+                    </div>
+                    <div class="form-group">
+                        <label>Fornecedor (Auto)</label>
+                        <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado (UF Auto)</label>
+                        <input title="uf" type="text" id="uf" class="input-small input-readonly" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Transportadora (Auto)</label>
+                        <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Veículo Atual (Auto)</label>
+                        <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
+                    </div>
+                    
+                   <div class="comparison-box">
+                        <div class="form-group comparison-left">
+                            <label class="label-grey">📊 Dados de Simulação</label>
+                            <p class="help-text">Importe arquivo com AS IS e TO BE:</p>
+                            
+                            <div class="flex-center">
+                                <button class="btn-folder btn-folder-full" onclick="importASIS()">
+                                    📄 Carregar Arquivo (Excel/CSV)
+                                </button>
+                            </div>
+                            <div id="asis-status" class="status-success"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="label-red">🚀 Parâmetros Adicionais</label>
+                            <p class="help-text">Ajustes personalizados (opcional):</p>
+                            <div>
+                                <label>QME Padrão TO BE (se não especificado no arquivo)</label>
+                                <input type="number" id="qme_tobe" placeholder="Ex: 150" class="input-tobe">
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                </div>
+
+                <button class="submit-btn" onclick="runSimulation()">Executar Simulação</button>
+                <div class="clearfix"></div>
+                
+                <!-- Results Section -->
+                <div id="results-section">
+                    <h3 class="section-title">Resultados da Simulação</h3>
+                    
+                    <div class="results-summary">
+                        <div class="summary-grid">
+                            <div>
+                                <strong>Total de Linhas:</strong>
+                                <span id="summary-rows" class="summary-value summary-value-red">0</span>
+                            </div>
+                            <div>
+                                <strong>Economia Total:</strong>
+                                <span id="summary-savings" class="summary-value summary-value-green">R$ 0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-wrapper">
+                        <table id="results-table">
+                            <thead>
+                                <tr>
+                                    <th class="th-left">Linha</th>
+                                    <th class="th-left">PN</th>
+                                    <th class="th-center">QME AS IS</th>
+                                    <th class="th-center">QME TO BE</th>
+                                    <th class="th-center">Vol AS IS</th>
+                                    <th class="th-center">Vol TO BE</th>
+                                    <th class="th-center">Economia</th>
+                                    <th class="th-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-body">
+                                <!-- Results will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <button class="submit-btn submit-btn-spacing" onclick="exportResults()">
+                        📊 Exportar Resultados
+                    </button>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="mod-freq" class="module">
+            <div class="card">
+                <button class="btn-back" onclick="switchTab('dash')">← Voltar ao Dashboard</button>
+                <h3 class="section-title">Redução de Frequência</h3>
+                <p>Módulo em desenvolvimento...</p>
+            </div>
+        </div>
+
+        <div id="mod-emb" class="module">
+            <div class="card">
+                <button class="btn-back" onclick="switchTab('dash')">← Voltar ao Dashboard</button>
+                <h3 class="section-title">Alteração de Embalagem</h3>
+                <p>Módulo em desenvolvimento...</p>
+            </div>
+        </div>
+
+        <div id="mod-dash" class="module">
+            <div class="card">
+                <h3 class="section-title">Dashboard - Resultados Consolidados</h3>
+                
+                <div id="dashboard-content">
+                    <p class="dashboard-placeholder">
+                        Execute simulações nos módulos anteriores para ver os resultados consolidados aqui.
+                    </p>
+                    
+                    <!-- Dashboard charts and summary will be added here -->
+                    <div title="dashboard-summary" id="dashboard-summary" class="hidden">
+                        <div class="results-summary">
+                            <h4>Resumo Geral de Simulações</h4>
+                            <div class="summary-grid">
+                                <div>
+                                    <strong>Total de Projetos:</strong>
+                                    <span id="dash-projects" class="summary-value summary-value-red">0</span>
+                                </div>
+                                <div>
+                                    <strong>Economia Total Anual:</strong>
+                                    <span id="dash-savings" class="summary-value summary-value-green">R$ 0</span>
+                                </div>
+                                <div>
+                                    <strong>Redução de Viagens:</strong>
+                                    <span id="dash-trips" class="summary-value summary-value-red">0</span>
+                                </div>
+                                <div>
+                                    <strong>CO₂ Reduzido:</strong>
+                                    <span id="dash-co2" class="summary-value summary-value-green">0 kg</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<script src="script.js"></script>
+</body>
+</html>
