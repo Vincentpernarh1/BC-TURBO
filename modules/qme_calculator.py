@@ -21,7 +21,7 @@ class QMECalculator:
         Returns:
             Dicionário com resultados da simulação
         """
-        print("Dados recebidos:", data)
+        # print("Dados recebidos:", data)
         
         if self.asis_data is None:
             return {

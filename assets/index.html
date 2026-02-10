@@ -142,15 +142,15 @@
                 <div class="input-grid">
                     <div class="form-group">
                         <label>Código do Projeto</label>
-                        <input title="cod_projeto" type="text" id="cod_projeto" placeholder="Ex: PROJ-001">
+                        <input title="freq-cod_projeto" type="text" id="freq-cod_projeto" placeholder="Ex: PROJ-001">
                     </div>
                     <div class="form-group">
                         <label>Código SAP / IMS</label>
-                        <input title="cod_sap" type="text" id="cod_sap" onchange="lookupSAPData()">
+                        <input title="freq-cod_sap" type="text" id="freq-cod_sap" onchange="lookupSAPData()">
                     </div>
                     <div class="form-group">
                         <label>Planta </label>
-                        <select title="planta" id="planta">
+                        <select title="freq-planta" id="freq-planta">
                             <option>Betim</option>
                             <option>Porto Real</option>
                             <option>Goiana</option>
@@ -158,28 +158,28 @@
                     </div>
                     <div class="form-group">
                         <label>Cidade Origem</label>
-                        <input title="origem" type="text" id="origem">
+                        <input title="freq-origem" type="text" id="freq-origem">
                     </div>
                     <div class="form-group">
                         <label>Cidade Destino</label>
-                        <input title="destino" type="text" id="destino">
+                        <input title="freq-destino" type="text" id="freq-destino">
                     </div>
 
                     <div class="form-group">
                         <label>Fornecedor <span class="label-grey">(Auto)</span></label>
-                        <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
+                        <input title="freq-fornecedor" type="text" id="freq-fornecedor" class="input-readonly" readonly>
                     </div>
                     <div class="form-group">
                         <label>UF <span class="label-grey">(Auto)</span></label>
-                        <input title="uf" type="text" id="uf" class="input-readonly" readonly>
+                        <input title="freq-uf" type="text" id="freq-uf" class="input-readonly" readonly>
                     </div>
                     <div class="form-group">
                         <label>Transportadora <span class="label-grey">(Auto)</span></label>
-                        <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
+                        <input title="freq-transportadora" type="text" id="freq-transportadora" class="input-readonly" readonly>
                     </div>
                     <div class="form-group">
                         <label>Veículo Atual <span class="label-grey">(Auto)</span></label>
-                        <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
+                        <input title="freq-veiculo" type="text" id="freq-veiculo" class="input-readonly" readonly>
                     </div>
 
                    <div class="comparison-box">
@@ -199,7 +199,7 @@
                                     <p class="help-text">Ajustes personalizados (opcional):</p>
                                     <div>
                                         <label>QME Padrão TO BE (se não especificado no arquivo)</label>
-                                        <input type="number" id="qme_tobe" placeholder="Ex: 150" class="input-tobe">
+                                        <input type="number" id="freq-qme_tobe" placeholder="Ex: 150" class="input-tobe">
                                     </div>
                                 </div>
                             </div>
@@ -207,18 +207,18 @@
                             <div class="form-group">
                                 <label class="label-grey">📋 Status do Arquivo</label>
                                 <p class="help-text">Informações sobre o arquivo importado:</p>
-                                <div id="asis-status" class="asis-status-container" >
+                                <div id="freq-asis-status" class="asis-status-container" >
                             <div class="asis-column as-is">
                                 <h4>AS IS</h4>
-                                <div id="asis-details" class="asis-details"></div>
+                                <div id="freq-asis-details" class="asis-details"></div>
                             </div>
                             <div class="asis-column to-be">
                                 <h4>TO BE</h4>
-                                <div id="tobe-details" class="asis-details"></div>
+                                <div id="freq-tobe-details" class="asis-details"></div>
                             </div>
                         </div>
-                        <div id="asis-file-info" class="asis-file-info" ></div>
-                        <div id="asis-sample" class="asis-sample" ></div>
+                        <div id="freq-asis-file-info" class="asis-file-info" ></div>
+                        <div id="freq-asis-sample" class="asis-sample" ></div>
                             </div>
                         </div>
 
