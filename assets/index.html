@@ -292,11 +292,11 @@
                         <div class="results-summary">
                             <div class="summary-grid">
                                 <div>
-                                    <strong>Total de PNs:</strong>
+                                    <strong>Total de Linhas (Astobe):</strong>
                                     <span id="dashboard-summary-rows" class="summary-value summary-value-red">0</span>
                                 </div>
                                 <div>
-                                    <strong>PNs com Match (PFEP):</strong>
+                                    <strong>Linhas com Match (PFEP):</strong>
                                     <span id="dashboard-matched-pns" class="summary-value summary-value-green">0</span>
                                 </div>
                                 <div>
@@ -310,9 +310,65 @@
                             </div>
                         </div>
 
-                        <!-- Aggregated Monthly Table -->
+                        <!-- Detailed Breakdown Section (like Excel) -->
                         <div class="table-wrapper monthly-table-wrapper">
-                            <h4 class="section-header">📈 Agregação Mensal</h4>
+                            <h4 class="section-header">📋 Breakdown Detalhado - Cenário AS IS (Atual)</h4>
+                            <table id="breakdown-asis-table" class="monthly-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-left">Métrica</th>
+                                        <th class="th-center">Jan</th>
+                                        <th class="th-center">Fev</th>
+                                        <th class="th-center">Mar</th>
+                                        <th class="th-center">Abr</th>
+                                        <th class="th-center">Mai</th>
+                                        <th class="th-center">Jun</th>
+                                        <th class="th-center">Jul</th>
+                                        <th class="th-center">Ago</th>
+                                        <th class="th-center">Set</th>
+                                        <th class="th-center">Out</th>
+                                        <th class="th-center">Nov</th>
+                                        <th class="th-center">Dez</th>
+                                        <th class="th-center th-total-anual">Total Anual</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="breakdown-asis-body">
+                                    <!-- AS IS breakdown will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- TO BE Breakdown -->
+                        <div class="table-wrapper monthly-table-wrapper">
+                            <h4 class="section-header">📋 Breakdown Detalhado - Cenário TO BE (Proposto)</h4>
+                            <table id="breakdown-tobe-table" class="monthly-table">
+                                <thead>
+                                    <tr>
+                                        <th class="th-left">Métrica</th>
+                                        <th class="th-center">Jan</th>
+                                        <th class="th-center">Fev</th>
+                                        <th class="th-center">Mar</th>
+                                        <th class="th-center">Abr</th>
+                                        <th class="th-center">Mai</th>
+                                        <th class="th-center">Jun</th>
+                                        <th class="th-center">Jul</th>
+                                        <th class="th-center">Ago</th>
+                                        <th class="th-center">Set</th>
+                                        <th class="th-center">Out</th>
+                                        <th class="th-center">Nov</th>
+                                        <th class="th-center">Dez</th>
+                                        <th class="th-center th-total-anual">Total Anual</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="breakdown-tobe-body">
+                                    <!-- TO BE breakdown will be inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Aggregated Monthly Table (Summary) -->
+                        <div class="table-wrapper monthly-table-wrapper">
+                            <h4 class="section-header">📈 Resumo - Comparativo</h4>
                             <table id="dashboard-monthly-table" class="monthly-table">
                                 <thead>
                                     <tr>

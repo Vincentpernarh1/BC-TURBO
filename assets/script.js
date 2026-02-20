@@ -377,49 +377,174 @@ function displayResults(response) {
     if (resultsSection) resultsSection.style.display = 'block';
     
     // Update summary in dashboard
-    document.getElementById('dashboard-summary-rows').innerText = response.summary.total_rows;
-    document.getElementById('dashboard-matched-pns').innerText = response.summary.matched_pns || 0;
-    document.getElementById('dashboard-unmatched-pns').innerText = response.summary.unmatched_pns || 0;
+    // Update summary cards with total rows from Astobe file
+    document.getElementById('dashboard-summary-rows').innerText = response.summary.total_rows || 0;
+    document.getElementById('dashboard-matched-pns').innerText = response.summary.matched_rows || 0;
+    document.getElementById('dashboard-unmatched-pns').innerText = response.summary.unmatched_rows || 0;
     document.getElementById('dashboard-summary-savings').innerText = 'R$ ' + (response.summary.saving_12_meses || 0).toLocaleString('pt-BR');
     
-    // Populate monthly aggregation table
+    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    
+    // Populate AS IS Breakdown Table
+    const breakdownAsisBody = document.getElementById('breakdown-asis-body');
+    if (breakdownAsisBody) {
+        breakdownAsisBody.innerHTML = '';
+        
+        // Volume m³ row
+        const volumeRow = document.createElement('tr');
+        volumeRow.innerHTML = '<td class="td-label-bold">Volume m³</td>';
+        months.forEach(month => {
+            volumeRow.innerHTML += '<td class="td-center">-</td>';
+        });
+        volumeRow.innerHTML += '<td class="td-total-anual">-</td>';
+        breakdownAsisBody.appendChild(volumeRow);
+        
+        // Qtde de viagens row
+        const viagensRow = document.createElement('tr');
+        viagensRow.innerHTML = '<td class="td-label">Qtde de viagens (VEÍCULO) (Semanal)</td>';
+        months.forEach(month => {
+            viagensRow.innerHTML += '<td class="td-center">-</td>';
+        });
+        viagensRow.innerHTML += '<td class="td-total-anual">-</td>';
+        breakdownAsisBody.appendChild(viagensRow);
+        
+        // Custo semanal Truck row
+        const custoSemanalRow = document.createElement('tr');
+        custoSemanalRow.innerHTML = '<td class="td-label">Custo semanal Truck (tarifa)</td>';
+        months.forEach(month => {
+            custoSemanalRow.innerHTML += '<td class="td-center">R$ -</td>';
+        });
+        custoSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownAsisBody.appendChild(custoSemanalRow);
+        
+        // Custo total caminhão row
+        const custoTotalRow = document.createElement('tr');
+        custoTotalRow.innerHTML = '<td class="td-label">Custo total caminhão Week</td>';
+        months.forEach(month => {
+            custoTotalRow.innerHTML += '<td class="td-center">R$ -</td>';
+        });
+        custoTotalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownAsisBody.appendChild(custoTotalRow);
+        
+        // TOTAL SEMANAL row
+        const totalSemanalRow = document.createElement('tr');
+        totalSemanalRow.innerHTML = '<td class="td-label-bold">TOTAL SEMANAL</td>';
+        months.forEach(month => {
+            totalSemanalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
+        });
+        totalSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownAsisBody.appendChild(totalSemanalRow);
+        
+        // TOTAL MENSAL row
+        const totalMensalRow = document.createElement('tr');
+        totalMensalRow.innerHTML = '<td class="td-label-bold">TOTAL MENSAL</td>';
+        months.forEach(month => {
+            totalMensalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
+        });
+        totalMensalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownAsisBody.appendChild(totalMensalRow);
+    }
+    
+    // Populate TO BE Breakdown Table
+    const breakdownTobeBody = document.getElementById('breakdown-tobe-body');
+    if (breakdownTobeBody) {
+        breakdownTobeBody.innerHTML = '';
+        
+        // Volume m³ row
+        const volumeRow = document.createElement('tr');
+        volumeRow.innerHTML = '<td class="td-label-bold">Volume m³</td>';
+        months.forEach(month => {
+            volumeRow.innerHTML += '<td class="td-center">-</td>';
+        });
+        volumeRow.innerHTML += '<td class="td-total-anual">-</td>';
+        breakdownTobeBody.appendChild(volumeRow);
+        
+        // Qtde de viagens row
+        const viagensRow = document.createElement('tr');
+        viagensRow.innerHTML = '<td class="td-label">Qtde de viagens (VEÍCULO) (Semanal)</td>';
+        months.forEach(month => {
+            viagensRow.innerHTML += '<td class="td-center">-</td>';
+        });
+        viagensRow.innerHTML += '<td class="td-total-anual">-</td>';
+        breakdownTobeBody.appendChild(viagensRow);
+        
+        // Custo semanal Truck row
+        const custoSemanalRow = document.createElement('tr');
+        custoSemanalRow.innerHTML = '<td class="td-label">Custo semanal Truck (tarifa)</td>';
+        months.forEach(month => {
+            custoSemanalRow.innerHTML += '<td class="td-center">R$ -</td>';
+        });
+        custoSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownTobeBody.appendChild(custoSemanalRow);
+        
+        // Custo total caminhão row
+        const custoTotalRow = document.createElement('tr');
+        custoTotalRow.innerHTML = '<td class="td-label">Custo total caminhão Week</td>';
+        months.forEach(month => {
+            custoTotalRow.innerHTML += '<td class="td-center">R$ -</td>';
+        });
+        custoTotalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownTobeBody.appendChild(custoTotalRow);
+        
+        // TOTAL SEMANAL row
+        const totalSemanalRow = document.createElement('tr');
+        totalSemanalRow.innerHTML = '<td class="td-label-bold">TOTAL SEMANAL</td>';
+        months.forEach(month => {
+            totalSemanalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
+        });
+        totalSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownTobeBody.appendChild(totalSemanalRow);
+        
+        // TOTAL MENSAL row
+        const totalMensalRow = document.createElement('tr');
+        totalMensalRow.innerHTML = '<td class="td-label-bold">TOTAL MENSAL</td>';
+        months.forEach(month => {
+            totalMensalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
+        });
+        totalMensalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
+        breakdownTobeBody.appendChild(totalMensalRow);
+    }
+    
+    // Populate monthly aggregation table with QME quantities
     const monthlyBody = document.getElementById('dashboard-monthly-body');
     if (monthlyBody) {
         monthlyBody.innerHTML = '';
         
-        const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-        
-        // AS IS Row
-        const asisRow = document.createElement('tr');
-        asisRow.innerHTML = '<td class="td-label-bold">TOTAL AS IS</td>';
+        // QME AS IS Row (showing quantities, not monetary values)
+        const qmeAsisRow = document.createElement('tr');
+        qmeAsisRow.innerHTML = '<td class="td-label-bold">QME AS IS (unidades)</td>';
         months.forEach(month => {
-            const value = response.summary.monthly_asis?.[month] || 0;
-            asisRow.innerHTML += `<td class="td-center">R$ ${value.toLocaleString('pt-BR')}</td>`;
+            const value = response.summary.monthly_qme_asis?.[month] || 0;
+            qmeAsisRow.innerHTML += `<td class="td-center">${value.toFixed(0)}</td>`;
         });
-        asisRow.innerHTML += `<td class="td-total-anual">R$ ${(response.summary.total_asis_anual || 0).toLocaleString('pt-BR')}</td>`;
-        monthlyBody.appendChild(asisRow);
+        qmeAsisRow.innerHTML += `<td class="td-total-anual">${(response.summary.total_qme_asis || 0).toFixed(0)}</td>`;
+        monthlyBody.appendChild(qmeAsisRow);
         
-        // TO BE Row
-        const tobeRow = document.createElement('tr');
-        tobeRow.innerHTML = '<td class="td-label-bold">TOTAL TO BE</td>';
+        // QME TO BE Row (showing quantities, not monetary values)
+        const qmeTobeRow = document.createElement('tr');
+        qmeTobeRow.innerHTML = '<td class="td-label-bold">QME TO BE (unidades)</td>';
         months.forEach(month => {
-            const value = response.summary.monthly_tobe?.[month] || 0;
-            tobeRow.innerHTML += `<td class="td-center">R$ ${value.toLocaleString('pt-BR')}</td>`;
+            const value = response.summary.monthly_qme_tobe?.[month] || 0;
+            qmeTobeRow.innerHTML += `<td class="td-center">${value.toFixed(0)}</td>`;
         });
-        tobeRow.innerHTML += `<td class="td-total-anual">R$ ${(response.summary.total_tobe_anual || 0).toLocaleString('pt-BR')}</td>`;
-        monthlyBody.appendChild(tobeRow);
+        qmeTobeRow.innerHTML += `<td class="td-total-anual">${(response.summary.total_qme_tobe || 0).toFixed(0)}</td>`;
+        monthlyBody.appendChild(qmeTobeRow);
         
-        // SAVING Row
+        // Separator row or space before savings
+        const separatorRow = document.createElement('tr');
+        separatorRow.innerHTML = '<td colspan="14" style="height: 10px; background-color: #f0f0f0;"></td>';
+        monthlyBody.appendChild(separatorRow);
+        
+        // SAVING Row (monetary values)
         const savingRow = document.createElement('tr');
-        savingRow.innerHTML = '<td class="td-label-saving">SAVING</td>';
+        savingRow.innerHTML = '<td class="td-label-saving">ECONOMIA MENSAL (R$)</td>';
         months.forEach(month => {
-            const asis = response.summary.monthly_asis?.[month] || 0;
-            const tobe = response.summary.monthly_tobe?.[month] || 0;
-            const saving = asis - tobe;
-            savingRow.innerHTML += `<td class="td-saving">R$ ${saving.toLocaleString('pt-BR')}</td>`;
+            // Calculate monthly savings based on volumes (placeholder - adjust as needed)
+            const monthly_saving = (response.summary.saving_12_meses || 0) / 12;
+            savingRow.innerHTML += `<td class="td-saving">R$ ${monthly_saving.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>`;
         });
-        savingRow.innerHTML += `<td class="td-saving-total">R$ ${(response.summary.saving_12_meses || 0).toLocaleString('pt-BR')}</td>`;
+        savingRow.innerHTML += `<td class="td-saving-total">R$ ${(response.summary.saving_12_meses || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>`;
         monthlyBody.appendChild(savingRow);
     }
     

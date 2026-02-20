@@ -357,12 +357,27 @@ input[type=number]::-webkit-outer-spin-button {
     margin-top: 15px;
     background-color: var(--dhl-yellow); 
     color: var(--stellantis-blue); 
-    border: none;
-    padding: 10px 25px;
-    font-weight: bold; 
+    border: 2px solid var(--stellantis-blue);
+    padding: 12px 30px;
+    font-weight: 700; 
+    font-size: 0.95rem;
     cursor: pointer; 
-    border-radius: 4px;
+    border-radius: 6px;
     float: right;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.submit-btn:hover {
+    background-color: var(--stellantis-blue);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 12px rgba(20, 50, 104, 0.3);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .submit-btn-spacing {
@@ -675,24 +690,66 @@ input[type=number]::-webkit-outer-spin-button {
 
 /* Dashboard Specific Styles */
 .monthly-table-wrapper {
-    margin-top: 20px;
+    margin-top: 25px;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .section-header {
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--stellantis-blue);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--stellantis-blue);
 }
 
 .monthly-table {
+    font-size: 0.9rem;
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.monthly-table thead th {
+    background: linear-gradient(135deg, var(--stellantis-blue) 0%, #1a4a8f 100%);
+    color: white;
+    padding: 12px 8px;
+    font-weight: 600;
+    text-align: center;
     font-size: 0.85rem;
+    border: 1px solid #0d2850;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.monthly-table thead th:first-child {
+    text-align: left;
+    padding-left: 15px;
+    min-width: 180px;
+}
+
+.monthly-table tbody tr {
+    border-bottom: 1px solid #e0e0e0;
+    transition: background-color 0.2s ease;
+}
+
+.monthly-table tbody tr:hover {
+    background-color: #f8f9fa;
 }
 
 .th-total-anual {
-    background: #e8f5e9;
+    background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%) !important;
+    font-weight: 700;
+    font-size: 0.9rem;
 }
 
 .toggle-button-container {
     text-align: center;
-    margin: 20px 0;
+    margin: 30px 0;
+    padding: 20px 0;
 }
 
 .hidden-section {
@@ -701,51 +758,65 @@ input[type=number]::-webkit-outer-spin-button {
 
 /* Table Cell Styles */
 .td-label {
-    padding: 8px;
+    padding: 10px 15px;
+    border-right: 1px solid #e0e0e0;
 }
 
 .td-label-bold {
-    padding: 8px;
-    font-weight: bold;
+    padding: 12px 15px;
+    font-weight: 700;
+    background-color: #f5f5f5;
+    border-right: 1px solid #e0e0e0;
+    font-size: 0.9rem;
 }
 
 .td-label-saving {
-    padding: 8px;
-    font-weight: bold;
-    color: green;
+    padding: 12px 15px;
+    font-weight: 700;
+    color: #2e7d32;
+    background-color: #e8f5e9;
+    border-right: 1px solid #e0e0e0;
+    font-size: 0.9rem;
 }
 
 .td-center {
-    padding: 8px;
+    padding: 10px 8px;
     text-align: center;
+    border-right: 1px solid #f0f0f0;
 }
 
 .td-center-bold {
-    padding: 8px;
+    padding: 10px 8px;
     text-align: center;
-    font-weight: bold;
+    font-weight: 700;
+    border-right: 1px solid #f0f0f0;
 }
 
 .td-total-anual {
-    padding: 8px;
+    padding: 10px 8px;
     text-align: center;
-    font-weight: bold;
+    font-weight: 700;
     background: #e8f5e9;
+    border-left: 2px solid #43a047;
+    font-size: 0.95rem;
 }
 
 .td-saving {
-    padding: 8px;
+    padding: 10px 8px;
     text-align: center;
-    color: green;
-    font-weight: bold;
+    color: #2e7d32;
+    font-weight: 600;
+    border-right: 1px solid #f0f0f0;
 }
 
 .td-saving-total {
-    padding: 8px;
+    padding: 10px 8px;
     text-align: center;
-    font-weight: bold;
-    color: green;
+    font-weight: 700;
+    color: #1b5e20;
     background: #c8e6c9;
+    border-left: 2px solid #43a047;
+    font-size: 0.95rem;
 }
 
 .td-value {

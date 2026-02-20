@@ -43,34 +43,37 @@ class QMECalculator:
         
         # Filtra PFEP data pelos PNs do arquivo Astobe
         pfep_filtered = None
-        matched_pns = []
-        unmatched_pns = []
+        matched_rows = []
+        unmatched_rows = []
+        
         if pfep_data is not None:
-            # Obtém todos os PNs do arquivo Astobe
-            astobe_pns = self.asis_data['PN'].astype(str).str.strip().tolist()
+            # Obtém TODOS os PNs únicos do arquivo Astobe (para filtrar PFEP)
+            unique_astobe_pns = self.asis_data['PN'].astype(str).str.strip().unique().tolist()
             
             # Filtra PFEP data para incluir apenas esses PNs
-            pfep_filtered = pfep_data[pfep_data['Part Number'].astype(str).str.strip().isin(astobe_pns)]
+            pfep_filtered = pfep_data[pfep_data['Part Number'].astype(str).str.strip().isin(unique_astobe_pns)]
             
-            # Lista de PNs que tiveram match
-            matched_pns = pfep_filtered['Part Number'].astype(str).str.strip().unique().tolist()
+            # Cria um set de PNs que existem na PFEP para busca rápida
+            pfep_pn_set = set(pfep_filtered['Part Number'].astype(str).str.strip().unique().tolist())
             
-            # Lista de PNs que NÃO tiveram match
-            unmatched_pns = [pn for pn in astobe_pns if pn not in matched_pns]
+            # Para cada LINHA do Astobe, verifica se o PN tem match na PFEP
+            for idx, row in self.asis_data.iterrows():
+                pn = str(row.get('PN', '')).strip()
+                if pn in pfep_pn_set:
+                    matched_rows.append(idx)
+                else:
+                    unmatched_rows.append(idx)
             
             print(f"\n{'='*60}")
             print(f"PN MATCHING RESULTS")
             print(f"{'='*60}")
-            print(f"Total PNs in Astobe file: {len(astobe_pns)}")
-            print(f"Matched PNs in PFEP: {len(matched_pns)}")
-            print(f"Unmatched PNs: {len(unmatched_pns)}")
-            print(f"\n✓ Matched PNs:")
-            for pn in matched_pns:
-                print(f"  ✓ {pn}")
-            if unmatched_pns:
-                print(f"\n✗ Unmatched PNs (not found in PFEP):")
-                for pn in unmatched_pns:
-                    print(f"  ✗ {pn}")
+            print(f"Total ROWS in Astobe file: {len(self.asis_data)}")
+            print(f"Matched ROWS (found in PFEP): {len(matched_rows)}")
+            print(f"Unmatched ROWS (not in PFEP): {len(unmatched_rows)}")
+            print(f"\n✓ Matched row indices: {matched_rows[:10]}{'...' if len(matched_rows) > 10 else ''}")
+            if unmatched_rows:
+                print(f"\n✗ Unmatched row indices: {unmatched_rows}")
+                print(f"   Unmatched PNs: {[str(self.asis_data.iloc[i]['PN']).strip() for i in unmatched_rows]}")
             print(f"{'='*60}\n")
 
         # Processa cada linha do arquivo AS IS/TO BE
@@ -132,33 +135,45 @@ class QMECalculator:
                 "status": status
             })
         
-        # Calcula agregações mensais (exemplo)
-        monthly_asis = {month: 0 for month in ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                                                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']}
-        monthly_tobe = monthly_asis.copy()
+        # Calcula agregações mensais de QME
+        # Distribui o total de QME por 12 meses (exemplo simplificado - ajustar conforme necessidade)
+        total_qme_asis = sum(r['qme_asis'] for r in results)
+        total_qme_tobe = sum(r['qme_tobe'] for r in results)
+        qme_asis_mensal = total_qme_asis / 12
+        qme_tobe_mensal = total_qme_tobe / 12
         
-        # Total anual
-        total_asis_anual = sum(r['vol_asis'] for r in results) * 12  # Exemplo
-        total_tobe_anual = sum(r['vol_tobe'] for r in results) * 12  # Exemplo
+        months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        
+        monthly_qme_asis = {month: qme_asis_mensal for month in months}
+        monthly_qme_tobe = {month: qme_tobe_mensal for month in months}
+        
+        # Total anual de volumes transportados
+        total_asis_anual = sum(r['vol_asis'] for r in results) * 12
+        total_tobe_anual = sum(r['vol_tobe'] for r in results) * 12
         
         response = {
             "status": "success",
-            "message": f"Simulação concluída para {len(results)} PNs.",
+            "message": f"Simulação concluída para {len(results)} linhas.",
             "results": results,
             "summary": {
-                "total_rows": len(results),
+                "total_rows": len(self.asis_data),  # Total de linhas no arquivo Astobe
                 "total_savings": sum(r['savings'] for r in results),
-                "matched_pns": len(matched_pns),
-                "unmatched_pns": len(unmatched_pns),
-                "monthly_asis": monthly_asis,
-                "monthly_tobe": monthly_tobe,
+                "matched_rows": len(matched_rows),  # Linhas com match na PFEP
+                "unmatched_rows": len(unmatched_rows),  # Linhas sem match na PFEP
+                "monthly_qme_asis": monthly_qme_asis,
+                "monthly_qme_tobe": monthly_qme_tobe,
+                "total_qme_asis": total_qme_asis,
+                "total_qme_tobe": total_qme_tobe,
                 "total_asis_anual": total_asis_anual,
                 "total_tobe_anual": total_tobe_anual,
                 "saving_12_meses": total_asis_anual - total_tobe_anual
             },
             "matching": {
-                "matched": matched_pns,
-                "unmatched": unmatched_pns
+                "matched_rows": matched_rows,
+                "unmatched_rows": unmatched_rows,
+                "matched_count": len(matched_rows),
+                "unmatched_count": len(unmatched_rows)
             }
         }
         
