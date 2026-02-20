@@ -378,30 +378,73 @@ function displayResults(response) {
     
     // Update summary in dashboard
     document.getElementById('dashboard-summary-rows').innerText = response.summary.total_rows;
-    document.getElementById('dashboard-summary-savings').innerText = 'R$ ' + response.summary.total_savings.toLocaleString('pt-BR');
+    document.getElementById('dashboard-matched-pns').innerText = response.summary.matched_pns || 0;
+    document.getElementById('dashboard-unmatched-pns').innerText = response.summary.unmatched_pns || 0;
+    document.getElementById('dashboard-summary-savings').innerText = 'R$ ' + (response.summary.saving_12_meses || 0).toLocaleString('pt-BR');
     
-    // Populate results table in dashboard
+    // Populate monthly aggregation table
+    const monthlyBody = document.getElementById('dashboard-monthly-body');
+    if (monthlyBody) {
+        monthlyBody.innerHTML = '';
+        
+        const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        
+        // AS IS Row
+        const asisRow = document.createElement('tr');
+        asisRow.innerHTML = '<td class="td-label-bold">TOTAL AS IS</td>';
+        months.forEach(month => {
+            const value = response.summary.monthly_asis?.[month] || 0;
+            asisRow.innerHTML += `<td class="td-center">R$ ${value.toLocaleString('pt-BR')}</td>`;
+        });
+        asisRow.innerHTML += `<td class="td-total-anual">R$ ${(response.summary.total_asis_anual || 0).toLocaleString('pt-BR')}</td>`;
+        monthlyBody.appendChild(asisRow);
+        
+        // TO BE Row
+        const tobeRow = document.createElement('tr');
+        tobeRow.innerHTML = '<td class="td-label-bold">TOTAL TO BE</td>';
+        months.forEach(month => {
+            const value = response.summary.monthly_tobe?.[month] || 0;
+            tobeRow.innerHTML += `<td class="td-center">R$ ${value.toLocaleString('pt-BR')}</td>`;
+        });
+        tobeRow.innerHTML += `<td class="td-total-anual">R$ ${(response.summary.total_tobe_anual || 0).toLocaleString('pt-BR')}</td>`;
+        monthlyBody.appendChild(tobeRow);
+        
+        // SAVING Row
+        const savingRow = document.createElement('tr');
+        savingRow.innerHTML = '<td class="td-label-saving">SAVING</td>';
+        months.forEach(month => {
+            const asis = response.summary.monthly_asis?.[month] || 0;
+            const tobe = response.summary.monthly_tobe?.[month] || 0;
+            const saving = asis - tobe;
+            savingRow.innerHTML += `<td class="td-saving">R$ ${saving.toLocaleString('pt-BR')}</td>`;
+        });
+        savingRow.innerHTML += `<td class="td-saving-total">R$ ${(response.summary.saving_12_meses || 0).toLocaleString('pt-BR')}</td>`;
+        monthlyBody.appendChild(savingRow);
+    }
+    
+    // Populate detailed results table (initially hidden)
     const tbody = document.getElementById('dashboard-results-body');
     tbody.innerHTML = ''; // Clear previous results
     
     response.results.forEach(row => {
         const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid #eee';
+        tr.className = 'table-row';
+        
+        const statusClass = row.status === 'OK' ? 'status-ok' : 'status-warning';
         
         tr.innerHTML = `
-            <td style="padding: 8px;">${row.row}</td>
-            <td style="padding: 8px;">${row.pn}</td>
-            <td style="padding: 8px; text-align: center;">${row.qme_asis}</td>
-            <td style="padding: 8px; text-align: center;">${row.mdr_asis || '-'}</td>
-            <td style="padding: 8px; text-align: center;">${row.qme_tobe}</td>
-            <td style="padding: 8px; text-align: center;">${row.mdr_tobe || '-'}</td>
-            <td style="padding: 8px; text-align: center;">${row.vol_asis}</td>
-            <td style="padding: 8px; text-align: center;">${row.vol_tobe}</td>
-            <td style="padding: 8px; text-align: center; color: green; font-weight: bold;">R$ ${row.savings.toLocaleString('pt-BR')}</td>
-            <td style="padding: 8px; text-align: center;">
-                <span style="background: ${row.status === 'OK' ? '#d4edda' : '#f8d7da'}; 
-                             color: ${row.status === 'OK' ? '#155724' : '#721c24'}; 
-                             padding: 3px 8px; border-radius: 3px; font-size: 0.75rem;">
+            <td class="td-label">${row.row}</td>
+            <td class="td-label">${row.pn}</td>
+            <td class="td-center">${row.qme_asis}</td>
+            <td class="td-center">${row.mdr_asis || '-'}</td>
+            <td class="td-center">${row.qme_tobe}</td>
+            <td class="td-center">${row.mdr_tobe || '-'}</td>
+            <td class="td-center">${row.vol_asis}</td>
+            <td class="td-center">${row.vol_tobe}</td>
+            <td class="td-value">R$ ${row.savings.toLocaleString('pt-BR')}</td>
+            <td class="td-center">
+                <span class="status-badge ${statusClass}">
                     ${row.status}
                 </span>
             </td>
@@ -409,6 +452,27 @@ function displayResults(response) {
         
         tbody.appendChild(tr);
     });
+    
+    // Log matching info to console
+    if (response.matching) {
+        console.log('Matched PNs:', response.matching.matched);
+        console.log('Unmatched PNs:', response.matching.unmatched);
+    }
+}
+
+function toggleDetailedView() {
+    const detailsSection = document.getElementById('detailed-results-section');
+    const toggleBtn = document.getElementById('toggle-details-btn');
+    
+    if (detailsSection.classList.contains('hidden-section')) {
+        detailsSection.classList.remove('hidden-section');
+        toggleBtn.innerHTML = '🔼 Ocultar Detalhes por PN';
+        // Scroll to detailed section
+        detailsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        detailsSection.classList.add('hidden-section');
+        toggleBtn.innerHTML = '🔽 Mostrar Detalhes por PN';
+    }
 }
 
 function exportResults() {

@@ -70,7 +70,11 @@ class Api:
 
     def calculate_qme(self, data):
         """Calcula QME usando o módulo QMECalculator"""
-        return self.qme_calculator.calculate(data)
+        # Obtém o DataFrame completo de PFEP para filtrar por PNs do Astobe
+        pfep_data = self.sap_lookup.get_pfep_data()
+        
+        # Passa tanto os dados do formulário quanto os dados PFEP completos para o calculador
+        return self.qme_calculator.calculate(data, pfep_data)
     
     def export_results(self, filename=None):
         """Exporta os resultados para Excel"""

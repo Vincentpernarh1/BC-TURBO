@@ -11,6 +11,7 @@ class SAPLookup:
         self.sap_cache = {}
         self.pfep_data = None
         self.tdc_data = None
+        self.last_lookup_result = None  # Store last lookup result to reuse in calculations
     
     def _needs_parquet_conversion(self, excel_path, parquet_path):
         """Verifica se o arquivo Excel precisa ser convertido para Parquet"""
@@ -283,6 +284,9 @@ class SAPLookup:
                 if tdc_result:
                     combined_data.update(tdc_result)
                 
+                # Armazena o último resultado para reutilizar nos cálculos
+                self.last_lookup_result = combined_data
+                
                 return {
                     "status": "success",
                     "data": combined_data,
@@ -341,3 +345,12 @@ class SAPLookup:
         self.sap_cache.clear()
         self.pfep_data = None
         self.tdc_data = None
+        self.last_lookup_result = None
+    
+    def get_last_lookup_result(self):
+        """Retorna o último resultado de lookup para reutilizar nos cálculos"""
+        return self.last_lookup_result
+    
+    def get_pfep_data(self):
+        """Retorna o DataFrame completo de dados PFEP"""
+        return self.pfep_data

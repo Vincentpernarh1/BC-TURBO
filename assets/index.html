@@ -288,6 +288,7 @@
                     <div id="dashboard-results-section" >
                         <h3 class="section-title">Resultados da Simulação</h3>
                         
+                        <!-- Summary Cards -->
                         <div class="results-summary">
                             <div class="summary-grid">
                                 <div>
@@ -295,32 +296,79 @@
                                     <span id="dashboard-summary-rows" class="summary-value summary-value-red">0</span>
                                 </div>
                                 <div>
-                                    <strong>Economia Total:</strong>
+                                    <strong>PNs com Match (PFEP):</strong>
+                                    <span id="dashboard-matched-pns" class="summary-value summary-value-green">0</span>
+                                </div>
+                                <div>
+                                    <strong>PNs sem Match:</strong>
+                                    <span id="dashboard-unmatched-pns" class="summary-value summary-value-red">0</span>
+                                </div>
+                                <div>
+                                    <strong>Economia 12 Meses:</strong>
                                     <span id="dashboard-summary-savings" class="summary-value summary-value-green">R$ 0</span>
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="table-wrapper">
-                            <table id="dashboard-results-table">
+
+                        <!-- Aggregated Monthly Table -->
+                        <div class="table-wrapper monthly-table-wrapper">
+                            <h4 class="section-header">📈 Agregação Mensal</h4>
+                            <table id="dashboard-monthly-table" class="monthly-table">
                                 <thead>
                                     <tr>
-                                        <th class="th-left">Linha</th>
-                                        <th class="th-left">PN</th>
-                                        <th class="th-center">QME AS IS</th>
-                                        <th class="th-center">MDR AS IS</th>
-                                        <th class="th-center">QME TO BE</th>
-                                        <th class="th-center">MDR TO BE</th>
-                                        <th class="th-center">Vol AS IS</th>
-                                        <th class="th-center">Vol TO BE</th>
-                                        <th class="th-center">Economia</th>
-                                        <th class="th-center">Status</th>
+                                        <th class="th-left">Cenário</th>
+                                        <th class="th-center">Jan</th>
+                                        <th class="th-center">Fev</th>
+                                        <th class="th-center">Mar</th>
+                                        <th class="th-center">Abr</th>
+                                        <th class="th-center">Mai</th>
+                                        <th class="th-center">Jun</th>
+                                        <th class="th-center">Jul</th>
+                                        <th class="th-center">Ago</th>
+                                        <th class="th-center">Set</th>
+                                        <th class="th-center">Out</th>
+                                        <th class="th-center">Nov</th>
+                                        <th class="th-center">Dez</th>
+                                        <th class="th-center th-total-anual">Total Anual</th>
                                     </tr>
                                 </thead>
-                                <tbody id="dashboard-results-body">
-                                    <!-- Results will be inserted here -->
+                                <tbody id="dashboard-monthly-body">
+                                    <!-- Monthly aggregations will be inserted here -->
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- Toggle Button for Detailed View -->
+                        <div class="toggle-button-container">
+                            <button class="submit-btn" onclick="toggleDetailedView()" id="toggle-details-btn">
+                                🔽 Mostrar Detalhes por PN
+                            </button>
+                        </div>
+                        
+                        <!-- Detailed Results Table (Initially Hidden) -->
+                        <div id="detailed-results-section" class="hidden-section">
+                            <h4 class="section-header">📊 Detalhes por PN</h4>
+                            <div class="table-wrapper">
+                                <table id="dashboard-results-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="th-left">Linha</th>
+                                            <th class="th-left">PN</th>
+                                            <th class="th-center">QME AS IS</th>
+                                            <th class="th-center">MDR AS IS</th>
+                                            <th class="th-center">QME TO BE</th>
+                                            <th class="th-center">MDR TO BE</th>
+                                            <th class="th-center">Vol AS IS</th>
+                                            <th class="th-center">Vol TO BE</th>
+                                            <th class="th-center">Economia</th>
+                                            <th class="th-center">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dashboard-results-body">
+                                        <!-- Results will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                         
                         <button class="submit-btn submit-btn-spacing" onclick="exportResults()">

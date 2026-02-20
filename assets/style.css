@@ -672,3 +672,107 @@ input[type=number]::-webkit-outer-spin-button {
         opacity: 1;
     }
 }
+
+/* Dashboard Specific Styles */
+.monthly-table-wrapper {
+    margin-top: 20px;
+}
+
+.section-header {
+    margin-bottom: 10px;
+}
+
+.monthly-table {
+    font-size: 0.85rem;
+}
+
+.th-total-anual {
+    background: #e8f5e9;
+}
+
+.toggle-button-container {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.hidden-section {
+    display: none;
+}
+
+/* Table Cell Styles */
+.td-label {
+    padding: 8px;
+}
+
+.td-label-bold {
+    padding: 8px;
+    font-weight: bold;
+}
+
+.td-label-saving {
+    padding: 8px;
+    font-weight: bold;
+    color: green;
+}
+
+.td-center {
+    padding: 8px;
+    text-align: center;
+}
+
+.td-center-bold {
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.td-total-anual {
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    background: #e8f5e9;
+}
+
+.td-saving {
+    padding: 8px;
+    text-align: center;
+    color: green;
+    font-weight: bold;
+}
+
+.td-saving-total {
+    padding: 8px;
+    text-align: center;
+    font-weight: bold;
+    color: green;
+    background: #c8e6c9;
+}
+
+.td-value {
+    padding: 8px;
+    text-align: center;
+    color: green;
+    font-weight: bold;
+}
+
+/* Status Badge Styles */
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+.status-ok {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-warning {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Table Row Styles */
+.table-row {
+    border-bottom: 1px solid #eee;
+}
