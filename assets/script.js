@@ -1,5 +1,8 @@
 // assets/script.js
 
+// Global variable to store SAP lookup timeout
+let sapLookupTimeout = null;
+
 // TAB SWITCHING LOGIC
 function switchTab(tabName) {
     // Remove active class from buttons
@@ -23,20 +26,64 @@ function switchTab(tabName) {
         document.querySelector('#mod-emb').classList.add('active');
         document.querySelectorAll('.nav-item')[2].classList.add('active');
         navBar.classList.add('hide'); // Hide nav-bar
-    } else if(tabName === 'dash') {
-        document.querySelector('#mod-dash').classList.add('active');
+    } else if(tabName === 'veh') {
+        document.querySelector('#mod-veh').classList.add('active');
         document.querySelectorAll('.nav-item')[3].classList.add('active');
+        navBar.classList.remove('hide'); // Show nav-bar on dashboard
+    }
+    else if(tabName === 'fluxo') {
+        document.querySelector('#mod-fluxo').classList.add('active');
+        document.querySelectorAll('.nav-item')[4].classList.add('active');
+        navBar.classList.remove('hide'); // Show nav-bar on dashboard
+    }
+    else if(tabName === 'trip') {
+        document.querySelector('#mod-trip').classList.add('active');
+        document.querySelectorAll('.nav-item')[5].classList.add('active');
+        navBar.classList.remove('hide'); // Show nav-bar on dashboard
+    }
+    else if(tabName === 'waiting') {
+        document.querySelector('#mod-waiting').classList.add('active');
+        document.querySelectorAll('.nav-item')[6].classList.add('active');
+        navBar.classList.remove('hide'); // Show nav-bar on dashboard
+    }
+    else if(tabName === 'stact') {
+        document.querySelector('#mod-stact').classList.add('active');
+        document.querySelectorAll('.nav-item')[7].classList.add('active');
+        navBar.classList.remove('hide'); // Show nav-bar on dashboard
+    }
+    else if(tabName === 'dash') {
+        document.querySelector('#mod-dash').classList.add('active');
+        document.querySelectorAll('.nav-item')[7].classList.add('active');
         navBar.classList.remove('hide'); // Show nav-bar on dashboard
     }
 }
 
 // PYTHON INTERACTION (Calls the backend API)
 function selectDB() {
+    // Show loading overlay
+    showDatabaseLoadingOverlay();
+    
     // Calls the python function 'select_folder'
     window.pywebview.api.select_folder('db').then(path => {
         const label = document.getElementById('lbl-db');
         label.innerText = path;
         label.style.color = path !== "Not Selected" ? '#006400' : '#333';
+        
+        // Hide loading overlay
+        hideDatabaseLoadingOverlay();
+        
+        // Enable inputs when database folder is selected
+        if (path !== "Not Selected") {
+            enableQMEInputs();
+            hideDBWarning();
+            showToast('✅ Database loaded and ready!', 'success');
+        } else {
+            disableQMEInputs();
+            showDBWarning();
+        }
+    }).catch(error => {
+        hideDatabaseLoadingOverlay();
+        showToast('❌ Error loading database: ' + error, 'error');
     });
 }
 
@@ -48,26 +95,167 @@ function selectResult() {
     });
 }
 
+
+
 function lookupSAPData() {
     const codSap = document.getElementById('cod_sap').value;
     const planta = document.getElementById('planta').value;
     const origem = document.getElementById('origem').value;
     const destino = document.getElementById('destino').value;
     
-    if (!codSap || !planta || !origem || !destino) {
-        return; // Aguarda todos os campos necessários
+    // Validação do código SAP/IMS
+    if (!codSap || codSap.trim() === '') {
+        return; // Não faz nada se o campo estiver vazio
     }
     
+    // Mostra indicador de carregamento nos campos auto
+    showLoadingInFields();
+    
     window.pywebview.api.lookup_sap_data(codSap, planta, origem, destino).then(response => {
+        hideLoadingInFields();
+        
         if (response.status === 'success') {
             const data = response.data;
-            document.getElementById('fornecedor').value = data.fornecedor || '';
-            document.getElementById('transportadora').value = data.transportadora || '';
-            document.getElementById('veiculo').value = data.veiculo || '';
-            document.getElementById('uf').value = data.uf || '';
+            // Preenche os campos automaticamente
+            if (data['Nome Fornecedor']) document.getElementById('fornecedor').value = data['Nome Fornecedor'];
+            if (data.Transportadora) document.getElementById('transportadora').value = data.Transportadora;
+            if (data['Estado Fornecedor']) document.getElementById('uf').value = data['Estado Fornecedor'];
+            if (data['Veiculo a ser Utilizado']) document.getElementById('veiculo').value = data['Veiculo a ser Utilizado'];
+            if (data['Cidade Fornecedor']) document.getElementById('origem').value = data['Cidade Fornecedor'];
+            if (data['Destino Materiais']) document.getElementById('destino').value = data['Destino Materiais'];
+            if (data['Tipo de Fluxo']) document.getElementById('fluxo').value = data['Tipo de Fluxo'];
+            
+            // Mostra mensagem de sucesso
+            showToast('✅ Dados carregados com sucesso!', 'success');
+        } else if (response.status === 'not_found') {
+            showToast('⚠️ ' + response.message, 'warning');
+        } else if (response.status === 'error') {
+            showToast('❌ ' + response.message, 'error');
+        }
+    }).catch(error => {
+        hideLoadingInFields();
+        showToast('❌ Erro ao buscar dados: ' + error, 'error');
+    });
+}
+
+function showLoadingInFields() {
+    const fields = ['fornecedor', 'transportadora', 'veiculo', 'fluxo'];
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.value = '⏳ Carregando...';
+            field.classList.add('loading');
         }
     });
 }
+
+function hideLoadingInFields() {
+    const fields = ['fornecedor', 'transportadora', 'veiculo', 'fluxo'];
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            if (field.value === '⏳ Carregando...') {
+                field.value = '';
+            }
+            field.classList.remove('loading');
+        }
+    });
+}
+
+function showToast(message, type) {
+    const overlay = document.getElementById('toast-overlay');
+    const toast = document.getElementById('toast-message');
+    
+    if (overlay && toast) {
+        toast.innerText = message;
+        toast.className = 'toast-message toast-' + type;
+        overlay.classList.add('active');
+        
+        // Auto-hide após 5 segundos
+        setTimeout(() => {
+            overlay.classList.remove('active');
+        }, 3000);
+    }
+}
+
+// Função de debounce para auto-fetch SAP data
+function handleSAPInput(event) {
+    // Verifica se o database foi selecionado
+    if (!isDatabaseSelected()) {
+        showToast('⚠️ Por favor, selecione a pasta Database primeiro!', 'warning');
+        event.target.value = '';
+        return;
+    }
+    
+    // Limpa o timeout anterior
+    if (sapLookupTimeout) {
+        clearTimeout(sapLookupTimeout);
+    }
+    
+    const codSap = event.target.value;
+    
+    // Se o campo estiver vazio, não faz nada
+    if (!codSap || codSap.trim() === '') {
+        return;
+    }
+    
+    // Aguarda 2 segundos após o usuário parar de digitar
+    sapLookupTimeout = setTimeout(() => {
+        lookupSAPData();
+    }, 2000); // 2 segundos
+}
+
+function isDatabaseSelected() {
+    const dbLabel = document.getElementById('lbl-db');
+    return dbLabel && dbLabel.innerText !== "Not Selected";
+}
+
+function enableQMEInputs() {
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino'];
+    inputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.disabled = false;
+            input.classList.remove('disabled-input');
+            // Remove o listener de clique de aviso
+            input.removeEventListener('click', showDatabaseRequiredMessage);
+        }
+    });
+}
+
+function disableQMEInputs() {
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino'];
+    inputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.disabled = true;
+            input.classList.add('disabled-input');
+            // Adiciona listener para mostrar mensagem ao clicar
+            input.addEventListener('click', showDatabaseRequiredMessage);
+        }
+    });
+}
+
+function showDatabaseRequiredMessage() {
+    showToast('📂 Por favor, selecione a pasta Database Folder primeiro!', 'warning');
+}
+
+function showDBWarning() {
+    const warning = document.getElementById('db-warning');
+    if (warning) {
+        warning.style.display = 'block';
+    }
+}
+
+function hideDBWarning() {
+    const warning = document.getElementById('db-warning');
+    if (warning) {
+        warning.style.display = 'none';
+    }
+}
+
+
+
 
 function runSimulation() {
     // Gather inputs from the QME form
@@ -78,7 +266,7 @@ function runSimulation() {
         planta: document.getElementById('planta').value,
         origem: document.getElementById('origem').value,
         destino: document.getElementById('destino').value,
-        uf: document.getElementById('uf').value,
+        fluxo: document.getElementById('fluxo').value,
         transportadora: document.getElementById('transportadora').value,
         veiculo: document.getElementById('veiculo').value,
         qme_tobe: document.getElementById('qme_tobe').value
@@ -236,4 +424,65 @@ function exportResults() {
 // Event Listeners for initial load can go here if needed
 window.addEventListener('pywebviewready', function() {
     console.log('PyWebview API is ready');
+    
+    // Adiciona listener para auto-fetch no campo SAP
+    const sapInput = document.getElementById('cod_sap');
+    if (sapInput) {
+        sapInput.addEventListener('input', handleSAPInput);
+        console.log('SAP auto-fetch listener attached');
+    }
+    
+    // Inicializa o estado dos inputs baseado na seleção do database
+    initializeInputState();
 });
+
+// Fallback: adiciona listener quando DOM estiver pronto
+document.addEventListener('DOMContentLoaded', function() {
+    const sapInput = document.getElementById('cod_sap');
+    if (sapInput && !sapInput.hasAttribute('data-listener-attached')) {
+        sapInput.addEventListener('input', handleSAPInput);
+        sapInput.setAttribute('data-listener-attached', 'true');
+        console.log('SAP auto-fetch listener attached (DOMContentLoaded)');
+    }
+    
+    // Inicializa o estado dos inputs
+    initializeInputState();
+});
+
+// Database Loading Overlay Functions
+function showDatabaseLoadingOverlay() {
+    let overlay = document.getElementById('db-loading-overlay');
+    if (!overlay) {
+        // Create overlay if it doesn't exist
+        overlay = document.createElement('div');
+        overlay.id = 'db-loading-overlay';
+        overlay.className = 'db-loading-overlay';
+        overlay.innerHTML = `
+            <div class="db-loading-content">
+                <div class="spinner"></div>
+                <h3>📂 Loading Database Files...</h3>
+                <small>This may take a few seconds on first load</small>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+    overlay.classList.add('active');
+}
+
+function hideDatabaseLoadingOverlay() {
+    const overlay = document.getElementById('db-loading-overlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
+
+function initializeInputState() {
+    // Verifica se o database foi selecionado
+    if (isDatabaseSelected()) {
+        enableQMEInputs();
+        hideDBWarning();
+    } else {
+        disableQMEInputs();
+        showDBWarning();
+    }
+}

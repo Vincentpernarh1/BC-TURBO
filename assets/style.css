@@ -103,6 +103,7 @@ body {
 .nav-bar {
     background-color: var(--stellantis-blue);
     display: flex;
+    justify-content: space-evenly;
     padding: 0 20px;
 }
 
@@ -117,6 +118,8 @@ body {
     font-size: 0.9rem;
     border-bottom: 3px solid transparent; 
     transition: 0.3s;
+    border-right: 1px solid rgba(255, 204, 0, 0.2);
+   
 }
 
 .nav-item.active { 
@@ -130,7 +133,7 @@ body {
 
 /* MAIN CONTENT AREA */
 .container { 
-    padding: 20px; 
+    padding: 16px; 
     max-width: 1850px; 
     margin: 0 auto; 
 }
@@ -138,7 +141,7 @@ body {
 /* MODULE: INPUT CARD */
 .card { 
     background: white; 
-    padding: 20px;
+    padding: 15px;
     border-radius: 8px; 
     box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
 }
@@ -476,4 +479,196 @@ input[type=number]::-webkit-outer-spin-button {
 
 .mt-20 {
     margin-top: 20px;
+}
+
+/* Database Warning Message */
+.db-warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffe89f 100%);
+    color: #856404;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 5px solid #ffc107;
+    font-size: 0.95rem;
+    display: block;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+    }
+    50% {
+        box-shadow: 0 2px 16px rgba(255, 193, 7, 0.4);
+    }
+}
+
+/* Disabled Input Styles */
+.disabled-input {
+    background-color: #f5f5f5 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+    color: #999 !important;
+}
+
+.disabled-input::placeholder {
+    color: #bbb !important;
+}
+
+/* Toast Overlay Notification */
+.toast-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.toast-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.toast-message {
+    background: white;
+    padding: 20px 30px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    text-align: center;
+    animation: slideDown 0.3s ease-out;
+    border-left: 6px solid #333;
+}
+
+.toast-message.toast-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-left-color: #28a745;
+}
+
+.toast-message.toast-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border-left-color: #ffc107;
+}
+
+.toast-message.toast-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-left-color: #dc3545;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Loading state for input fields */
+.input-readonly.loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    color: #999;
+    font-style: italic;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Database Loading Overlay */
+.db-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.db-loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.db-loading-content {
+    background: white;
+    padding: 40px 50px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: fadeInScale 0.4s ease-out;
+}
+
+.db-loading-content h3 {
+    margin: 20px 0 10px 0;
+    color: var(--stellantis-blue);
+    font-size: 1.4rem;
+}
+
+.db-loading-content p {
+    color: #666;
+    margin: 10px 0;
+    font-size: 1rem;
+}
+
+.db-loading-content small {
+    color: #999;
+    font-size: 0.85rem;
+}
+
+/* Spinner Animation */
+.spinner {
+    margin: 0 auto;
+    width: 60px;
+    height: 60px;
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid var(--dhl-yellow);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeInScale {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
