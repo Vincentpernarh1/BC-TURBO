@@ -707,7 +707,7 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .monthly-table {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     width: 100%;
     border-collapse: collapse;
 }
@@ -715,10 +715,10 @@ input[type=number]::-webkit-outer-spin-button {
 .monthly-table thead th {
     background: linear-gradient(135deg, var(--stellantis-blue) 0%, #1a4a8f 100%);
     color: white;
-    padding: 12px 8px;
+    padding: 10px 6px;
     font-weight: 600;
     text-align: center;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     border: 1px solid #0d2850;
     position: sticky;
     top: 0;
@@ -758,65 +758,69 @@ input[type=number]::-webkit-outer-spin-button {
 
 /* Table Cell Styles */
 .td-label {
-    padding: 10px 15px;
+    padding: 8px 12px;
     border-right: 1px solid #e0e0e0;
+    font-size: 0.75rem;
 }
 
 .td-label-bold {
-    padding: 12px 15px;
+    padding: 8px 12px;
     font-weight: 700;
     background-color: #f5f5f5;
     border-right: 1px solid #e0e0e0;
-    font-size: 0.9rem;
+    font-size: 0.75rem;
 }
 
 .td-label-saving {
-    padding: 12px 15px;
+    padding: 8px 12px;
     font-weight: 700;
     color: #2e7d32;
     background-color: #e8f5e9;
     border-right: 1px solid #e0e0e0;
-    font-size: 0.9rem;
+    font-size: 0.75rem;
 }
 
 .td-center {
-    padding: 10px 8px;
+    padding: 8px 6px;
     text-align: center;
     border-right: 1px solid #f0f0f0;
+    font-size: 0.75rem;
 }
 
 .td-center-bold {
-    padding: 10px 8px;
+    padding: 8px 6px;
     text-align: center;
     font-weight: 700;
     border-right: 1px solid #f0f0f0;
+    font-size: 0.75rem;
 }
 
 .td-total-anual {
-    padding: 10px 8px;
+    padding: 8px 6px;
     text-align: center;
     font-weight: 700;
     background: #e8f5e9;
     border-left: 2px solid #43a047;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
 }
 
 .td-saving {
-    padding: 10px 8px;
+    padding: 8px 6px;
     text-align: center;
     color: #2e7d32;
     font-weight: 600;
     border-right: 1px solid #f0f0f0;
+    font-size: 0.75rem;
 }
 
 .td-saving-total {
-    padding: 10px 8px;
+    padding: 8px 6px;
     text-align: center;
     font-weight: 700;
     color: #1b5e20;
     background: #c8e6c9;
     border-left: 2px solid #43a047;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
 }
 
 .td-value {
@@ -846,4 +850,150 @@ input[type=number]::-webkit-outer-spin-button {
 /* Table Row Styles */
 .table-row {
     border-bottom: 1px solid #eee;
+}
+
+/* Combined Breakdown Table Specific Styles */
+.breakdown-combined {
+    font-size: 0.75rem;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.breakdown-combined .th-left {
+    width: 200px;
+    min-width: 180px;
+}
+
+.breakdown-combined .th-center-month {
+    background: linear-gradient(135deg, #1a4a8f 0%, #143268 100%);
+    color: white;
+    padding: 8px 4px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.75rem;
+    border: 1px solid #0d2850;
+    width: 80px;
+}
+
+.breakdown-combined .th-scenario-as {
+    background: #90caf9;
+    color: #0d47a1;
+    padding: 6px 2px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.7rem;
+    border: 1px solid #64b5f6;
+    width: 40px;
+}
+
+.breakdown-combined .th-scenario-to {
+    background: #a5d6a7;
+    color: #1b5e20;
+    padding: 6px 2px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.7rem;
+    border: 1px solid #81c784;
+    width: 40px;
+}
+
+.breakdown-combined .th-total-anual {
+    width: 100px;
+}
+
+.breakdown-combined .month-header-row th {
+    font-size: 0.75rem;
+    padding: 8px 4px;
+}
+
+.breakdown-combined .scenario-header-row th {
+    font-size: 0.7rem;
+    padding: 6px 2px;
+}
+
+/* Breakdown table cell styles */
+.td-breakdown-as {
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 0.7rem;
+    background: #e3f2fd;
+    border-right: 1px solid #90caf9;
+    width: 40px;
+    max-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.td-breakdown-to {
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 0.7rem;
+    background: #e8f5e9;
+    border-right: 1px solid #a5d6a7;
+    width: 40px;
+    max-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.td-breakdown-as-bold {
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #bbdefb;
+    border-right: 1px solid #90caf9;
+    width: 40px;
+    max-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.td-breakdown-to-bold {
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #c8e6c9;
+    border-right: 1px solid #a5d6a7;
+    width: 40px;
+    max-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.td-breakdown-total {
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #fff3e0;
+    border-left: 2px solid #ff9800;
+    width: 50px;
+    max-width: 50px;
+}
+
+.td-breakdown-total-bold {
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #ffe0b2;
+    border-left: 2px solid #ff9800;
+    width: 50px;
+    max-width: 50px;
+}
+
+/* Breakdown table label cells */
+.breakdown-combined .td-label,
+.breakdown-combined .td-label-bold {
+    width: 200px;
+    min-width: 180px;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.75rem;
 }

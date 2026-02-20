@@ -386,124 +386,64 @@ function displayResults(response) {
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     
-    // Populate AS IS Breakdown Table
-    const breakdownAsisBody = document.getElementById('breakdown-asis-body');
-    if (breakdownAsisBody) {
-        breakdownAsisBody.innerHTML = '';
+    // Populate Combined Breakdown Table (AS IS vs TO BE side by side)
+    const breakdownCombinedBody = document.getElementById('breakdown-combined-body');
+    if (breakdownCombinedBody) {
+        breakdownCombinedBody.innerHTML = '';
         
         // Volume m³ row
         const volumeRow = document.createElement('tr');
         volumeRow.innerHTML = '<td class="td-label-bold">Volume m³</td>';
         months.forEach(month => {
-            volumeRow.innerHTML += '<td class="td-center">-</td>';
+            volumeRow.innerHTML += '<td class="td-breakdown-as">-</td><td class="td-breakdown-to">-</td>';
         });
-        volumeRow.innerHTML += '<td class="td-total-anual">-</td>';
-        breakdownAsisBody.appendChild(volumeRow);
+        volumeRow.innerHTML += '<td class="td-breakdown-total" colspan="2">-</td>';
+        breakdownCombinedBody.appendChild(volumeRow);
         
         // Qtde de viagens row
         const viagensRow = document.createElement('tr');
         viagensRow.innerHTML = '<td class="td-label">Qtde de viagens (VEÍCULO) (Semanal)</td>';
         months.forEach(month => {
-            viagensRow.innerHTML += '<td class="td-center">-</td>';
+            viagensRow.innerHTML += '<td class="td-breakdown-as">-</td><td class="td-breakdown-to">-</td>';
         });
-        viagensRow.innerHTML += '<td class="td-total-anual">-</td>';
-        breakdownAsisBody.appendChild(viagensRow);
+        viagensRow.innerHTML += '<td class="td-breakdown-total" colspan="2">-</td>';
+        breakdownCombinedBody.appendChild(viagensRow);
         
         // Custo semanal Truck row
         const custoSemanalRow = document.createElement('tr');
         custoSemanalRow.innerHTML = '<td class="td-label">Custo semanal Truck (tarifa)</td>';
         months.forEach(month => {
-            custoSemanalRow.innerHTML += '<td class="td-center">R$ -</td>';
+            custoSemanalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
         });
-        custoSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownAsisBody.appendChild(custoSemanalRow);
+        custoSemanalRow.innerHTML += '<td class="td-breakdown-total" colspan="2">R$ -</td>';
+        breakdownCombinedBody.appendChild(custoSemanalRow);
         
         // Custo total caminhão row
         const custoTotalRow = document.createElement('tr');
         custoTotalRow.innerHTML = '<td class="td-label">Custo total caminhão Week</td>';
         months.forEach(month => {
-            custoTotalRow.innerHTML += '<td class="td-center">R$ -</td>';
+            custoTotalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
         });
-        custoTotalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownAsisBody.appendChild(custoTotalRow);
+        custoTotalRow.innerHTML += '<td class="td-breakdown-total" colspan="2">R$ -</td>';
+        breakdownCombinedBody.appendChild(custoTotalRow);
         
         // TOTAL SEMANAL row
         const totalSemanalRow = document.createElement('tr');
         totalSemanalRow.innerHTML = '<td class="td-label-bold">TOTAL SEMANAL</td>';
         months.forEach(month => {
-            totalSemanalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
+            totalSemanalRow.innerHTML += '<td class="td-breakdown-as-bold">R$ -</td><td class="td-breakdown-to-bold">R$ -</td>';
         });
-        totalSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownAsisBody.appendChild(totalSemanalRow);
+        totalSemanalRow.innerHTML += '<td class="td-breakdown-total-bold" colspan="2">R$ -</td>';
+        breakdownCombinedBody.appendChild(totalSemanalRow);
         
         // TOTAL MENSAL row
         const totalMensalRow = document.createElement('tr');
         totalMensalRow.innerHTML = '<td class="td-label-bold">TOTAL MENSAL</td>';
         months.forEach(month => {
-            totalMensalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
+            totalMensalRow.innerHTML += '<td class="td-breakdown-as-bold">R$ -</td><td class="td-breakdown-to-bold">R$ -</td>';
         });
-        totalMensalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownAsisBody.appendChild(totalMensalRow);
-    }
-    
-    // Populate TO BE Breakdown Table
-    const breakdownTobeBody = document.getElementById('breakdown-tobe-body');
-    if (breakdownTobeBody) {
-        breakdownTobeBody.innerHTML = '';
-        
-        // Volume m³ row
-        const volumeRow = document.createElement('tr');
-        volumeRow.innerHTML = '<td class="td-label-bold">Volume m³</td>';
-        months.forEach(month => {
-            volumeRow.innerHTML += '<td class="td-center">-</td>';
-        });
-        volumeRow.innerHTML += '<td class="td-total-anual">-</td>';
-        breakdownTobeBody.appendChild(volumeRow);
-        
-        // Qtde de viagens row
-        const viagensRow = document.createElement('tr');
-        viagensRow.innerHTML = '<td class="td-label">Qtde de viagens (VEÍCULO) (Semanal)</td>';
-        months.forEach(month => {
-            viagensRow.innerHTML += '<td class="td-center">-</td>';
-        });
-        viagensRow.innerHTML += '<td class="td-total-anual">-</td>';
-        breakdownTobeBody.appendChild(viagensRow);
-        
-        // Custo semanal Truck row
-        const custoSemanalRow = document.createElement('tr');
-        custoSemanalRow.innerHTML = '<td class="td-label">Custo semanal Truck (tarifa)</td>';
-        months.forEach(month => {
-            custoSemanalRow.innerHTML += '<td class="td-center">R$ -</td>';
-        });
-        custoSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownTobeBody.appendChild(custoSemanalRow);
-        
-        // Custo total caminhão row
-        const custoTotalRow = document.createElement('tr');
-        custoTotalRow.innerHTML = '<td class="td-label">Custo total caminhão Week</td>';
-        months.forEach(month => {
-            custoTotalRow.innerHTML += '<td class="td-center">R$ -</td>';
-        });
-        custoTotalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownTobeBody.appendChild(custoTotalRow);
-        
-        // TOTAL SEMANAL row
-        const totalSemanalRow = document.createElement('tr');
-        totalSemanalRow.innerHTML = '<td class="td-label-bold">TOTAL SEMANAL</td>';
-        months.forEach(month => {
-            totalSemanalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
-        });
-        totalSemanalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownTobeBody.appendChild(totalSemanalRow);
-        
-        // TOTAL MENSAL row
-        const totalMensalRow = document.createElement('tr');
-        totalMensalRow.innerHTML = '<td class="td-label-bold">TOTAL MENSAL</td>';
-        months.forEach(month => {
-            totalMensalRow.innerHTML += '<td class="td-center-bold">R$ -</td>';
-        });
-        totalMensalRow.innerHTML += '<td class="td-total-anual">R$ -</td>';
-        breakdownTobeBody.appendChild(totalMensalRow);
+        totalMensalRow.innerHTML += '<td class="td-breakdown-total-bold" colspan="2">R$ -</td>';
+        breakdownCombinedBody.appendChild(totalMensalRow);
     }
     
     // Populate monthly aggregation table with QME quantities

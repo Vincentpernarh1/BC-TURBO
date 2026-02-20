@@ -310,58 +310,56 @@
                             </div>
                         </div>
 
-                        <!-- Detailed Breakdown Section (like Excel) -->
+                        <!-- Detailed Breakdown Section (Combined AS IS / TO BE) -->
                         <div class="table-wrapper monthly-table-wrapper">
-                            <h4 class="section-header">📋 Breakdown Detalhado - Cenário AS IS (Atual)</h4>
-                            <table id="breakdown-asis-table" class="monthly-table">
+                            <h4 class="section-header">📋 Breakdown Detalhado - Comparativo AS IS vs TO BE</h4>
+                            <table id="breakdown-combined-table" class="monthly-table breakdown-combined">
                                 <thead>
-                                    <tr>
-                                        <th class="th-left">Métrica</th>
-                                        <th class="th-center">Jan</th>
-                                        <th class="th-center">Fev</th>
-                                        <th class="th-center">Mar</th>
-                                        <th class="th-center">Abr</th>
-                                        <th class="th-center">Mai</th>
-                                        <th class="th-center">Jun</th>
-                                        <th class="th-center">Jul</th>
-                                        <th class="th-center">Ago</th>
-                                        <th class="th-center">Set</th>
-                                        <th class="th-center">Out</th>
-                                        <th class="th-center">Nov</th>
-                                        <th class="th-center">Dez</th>
-                                        <th class="th-center th-total-anual">Total Anual</th>
+                                    <tr class="month-header-row">
+                                        <th class="th-left" rowspan="2">Métrica</th>
+                                        <th class="th-center-month" colspan="2">Jan</th>
+                                        <th class="th-center-month" colspan="2">Fev</th>
+                                        <th class="th-center-month" colspan="2">Mar</th>
+                                        <th class="th-center-month" colspan="2">Abr</th>
+                                        <th class="th-center-month" colspan="2">Mai</th>
+                                        <th class="th-center-month" colspan="2">Jun</th>
+                                        <th class="th-center-month" colspan="2">Jul</th>
+                                        <th class="th-center-month" colspan="2">Ago</th>
+                                        <th class="th-center-month" colspan="2">Set</th>
+                                        <th class="th-center-month" colspan="2">Out</th>
+                                        <th class="th-center-month" colspan="2">Nov</th>
+                                        <th class="th-center-month" colspan="2">Dez</th>
+                                        <th class="th-center th-total-anual" colspan="2" rowspan="2">Total Anual</th>
+                                    </tr>
+                                    <tr class="scenario-header-row">
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
+                                        <th class="th-scenario-as">AS IS</th>
+                                        <th class="th-scenario-to">TO BE</th>
                                     </tr>
                                 </thead>
-                                <tbody id="breakdown-asis-body">
-                                    <!-- AS IS breakdown will be inserted here -->
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- TO BE Breakdown -->
-                        <div class="table-wrapper monthly-table-wrapper">
-                            <h4 class="section-header">📋 Breakdown Detalhado - Cenário TO BE (Proposto)</h4>
-                            <table id="breakdown-tobe-table" class="monthly-table">
-                                <thead>
-                                    <tr>
-                                        <th class="th-left">Métrica</th>
-                                        <th class="th-center">Jan</th>
-                                        <th class="th-center">Fev</th>
-                                        <th class="th-center">Mar</th>
-                                        <th class="th-center">Abr</th>
-                                        <th class="th-center">Mai</th>
-                                        <th class="th-center">Jun</th>
-                                        <th class="th-center">Jul</th>
-                                        <th class="th-center">Ago</th>
-                                        <th class="th-center">Set</th>
-                                        <th class="th-center">Out</th>
-                                        <th class="th-center">Nov</th>
-                                        <th class="th-center">Dez</th>
-                                        <th class="th-center th-total-anual">Total Anual</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="breakdown-tobe-body">
-                                    <!-- TO BE breakdown will be inserted here -->
+                                <tbody id="breakdown-combined-body">
+                                    <!-- Combined breakdown will be inserted here -->
                                 </tbody>
                             </table>
                         </div>
