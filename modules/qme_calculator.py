@@ -11,13 +11,15 @@ class QMECalculator:
         """Define os dados AS IS/TO BE carregados"""
         self.asis_data = data
     
-    def calculate(self, data, pfep_data=None):
+    def calculate(self, data, pfep_data=None, nprc_data=None, mdr_data=None):
         """
-        Calcula QME baseado nos dados AS IS/TO BE e inputs do usuário
+        Calcula QME baseado nos dados TO BE (propose file) e AS IS (PFEP)
         
         Args:
             data: Dicionário com parâmetros de cálculo
-            pfep_data: DataFrame com dados PFEP completos (opcional)
+            pfep_data: DataFrame com dados PFEP completos - fonte de AS IS data
+            nprc_data: DataFrame com dados NPRC filtrados (opcional)
+            mdr_data: DataFrame com dados MDR para lookup de volumes
             
         Returns:
             Dicionário com resultados da simulação
@@ -34,133 +36,314 @@ class QMECalculator:
         print(f"\n{'='*60}")
         print("QME CALCULATION STARTING")
         print(f"{'='*60}")
-        print(f"AS IS/TO BE data: {len(self.asis_data)} rows")
+        print(f"PROPOSE file (TO BE data): {len(self.asis_data)} rows")
         if pfep_data is not None:
-            print(f"PFEP data available: {len(pfep_data)} total rows")
+            print(f"PFEP data (AS IS source): {len(pfep_data)} total rows")
         else:
             print("PFEP data: Not provided")
+        if nprc_data is not None:
+            print(f"NPRC data available: {len(nprc_data)} rows")
+        else:
+            print("NPRC data: Not provided")
+        if mdr_data is not None:
+            print(f"MDR data (volume lookup): {len(mdr_data)} rows")
+        else:
+            print("MDR data: Not provided")
         print(f"{'='*60}\n")
         
-        # Filtra PFEP data pelos PNs do arquivo Astobe
-        pfep_filtered = None
-        matched_rows = []
-        unmatched_rows = []
+        # STEP 1: Aggregate NPRC data by PN (sum monthly volumes for duplicate PNs)
+        nprc_aggregated = {}
+        if nprc_data is not None and 'PN' in nprc_data.columns:
+            print(f"Aggregating NPRC data by PN...")
+            print(f"  NPRC raw rows: {len(nprc_data)}")
+            
+            month_cols = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+            
+            for idx, row in nprc_data.iterrows():
+                pn = str(row.get('PN', '')).strip()
+                
+                if pn not in nprc_aggregated:
+                    # Initialize entry for this PN
+                    nprc_aggregated[pn] = {
+                        'PN': pn,
+                        'Plant': row.get('Plant', ''),
+                        'Model': row.get('Model', ''),
+                        'rows_aggregated': 0
+                    }
+                    # Initialize monthly volumes to 0
+                    for col in month_cols:
+                        nprc_aggregated[pn][col] = 0
+                
+                # Aggregate (sum) monthly volumes
+                for col in month_cols:
+                    if col in row:
+                        try:
+                            vol = float(row[col]) if row[col] and str(row[col]).lower() != 'nan' else 0
+                            nprc_aggregated[pn][col] += vol
+                        except:
+                            pass
+                
+                nprc_aggregated[pn]['rows_aggregated'] += 1
+            
+            # Check how many PNs had duplicates
+            duplicates = sum(1 for pn_data in nprc_aggregated.values() if pn_data['rows_aggregated'] > 1)
+            print(f"  NPRC unique PNs: {len(nprc_aggregated)}")
+            print(f"  PNs with duplicates (aggregated): {duplicates}")
+            
+            # Show example of aggregated PN
+            example_pn = next((pn_data for pn_data in nprc_aggregated.values() if pn_data['rows_aggregated'] > 1), None)
+            if example_pn:
+                print(f"\n  Example aggregated PN: {example_pn['PN']}")
+                print(f"    Rows aggregated: {example_pn['rows_aggregated']}")
+                print(f"    Total volume (all months): {sum(example_pn[col] for col in ['1','2','3','4','5','6','7','8','9','10','11','12'])}")
+            print()
+        
+        # STEP 2: Find PNs that exist in BOTH PFEP and NPRC (intersection)
+        # This creates the BASE DATASET for calculations
+        
+        pfep_pn_set = set()
+        nprc_pn_set = set()
         
         if pfep_data is not None:
-            # Obtém TODOS os PNs únicos do arquivo Astobe (para filtrar PFEP)
-            unique_astobe_pns = self.asis_data['PN'].astype(str).str.strip().unique().tolist()
-            
-            # Filtra PFEP data para incluir apenas esses PNs
-            pfep_filtered = pfep_data[pfep_data['Part Number'].astype(str).str.strip().isin(unique_astobe_pns)]
-            
-            # Cria um set de PNs que existem na PFEP para busca rápida
-            pfep_pn_set = set(pfep_filtered['Part Number'].astype(str).str.strip().unique().tolist())
-            
-            # Para cada LINHA do Astobe, verifica se o PN tem match na PFEP
+            pfep_pn_set = set(pfep_data['Part Number'].astype(str).str.strip().unique().tolist())
+            print(f"PFEP filtered PNs: {len(pfep_pn_set)}")
+        
+        if nprc_aggregated:
+            nprc_pn_set = set(nprc_aggregated.keys())
+            print(f"NPRC aggregated PNs: {len(nprc_pn_set)}")
+        
+        # Find intersection: PNs that exist in BOTH PFEP and NPRC
+        matched_pns = pfep_pn_set.intersection(nprc_pn_set)
+        
+        print(f"\n{'='*60}")
+        print(f"PFEP + NPRC INTERSECTION")
+        print(f"{'='*60}")
+        print(f"PNs in PFEP (filtered by SAP): {len(pfep_pn_set)}")
+        print(f"PNs in NPRC (aggregated): {len(nprc_pn_set)}")
+        print(f"PNs in BOTH (intersection): {len(matched_pns)}")
+        print(f"Sample matched PNs: {list(matched_pns)[:10]}")
+        print(f"{'='*60}\n")
+        
+        # STEP 3: Create propose file lookup for TO BE values
+        propose_lookup = {}
+        propose_pns_in_dataset = []
+        propose_pns_not_in_dataset = []
+        
+        if self.asis_data is not None:
             for idx, row in self.asis_data.iterrows():
                 pn = str(row.get('PN', '')).strip()
-                if pn in pfep_pn_set:
-                    matched_rows.append(idx)
+                propose_lookup[pn] = {
+                    'qme_tobe': row.get('TO_BE_QME', 0),
+                    'mdr_tobe': str(row.get('TO_BE_MDR', '')).strip(),
+                    'row_index': idx
+                }
+                
+                if pn in matched_pns:
+                    propose_pns_in_dataset.append(pn)
                 else:
-                    unmatched_rows.append(idx)
+                    propose_pns_not_in_dataset.append(pn)
             
-            print(f"\n{'='*60}")
-            print(f"PN MATCHING RESULTS")
-            print(f"{'='*60}")
-            print(f"Total ROWS in Astobe file: {len(self.asis_data)}")
-            print(f"Matched ROWS (found in PFEP): {len(matched_rows)}")
-            print(f"Unmatched ROWS (not in PFEP): {len(unmatched_rows)}")
-            print(f"\n✓ Matched row indices: {matched_rows[:10]}{'...' if len(matched_rows) > 10 else ''}")
-            if unmatched_rows:
-                print(f"\n✗ Unmatched row indices: {unmatched_rows}")
-                print(f"   Unmatched PNs: {[str(self.asis_data.iloc[i]['PN']).strip() for i in unmatched_rows]}")
-            print(f"{'='*60}\n")
+            print(f"Propose file analysis:")
+            print(f"  Total PNs in propose file: {len(propose_lookup)}")
+            print(f"  PNs found in PFEP+NPRC dataset: {len(propose_pns_in_dataset)} - {propose_pns_in_dataset}")
+            print(f"  PNs NOT in dataset: {len(propose_pns_not_in_dataset)} - {propose_pns_not_in_dataset}")
+            print()
 
-        # Processa cada linha do arquivo AS IS/TO BE
+        # STEP 3: Process ALL matched PNs (PFEP + NPRC intersection)
         results = []
-        for idx, row in self.asis_data.iterrows():
-            # Extrai os dados de cada linha
-            pn = str(row.get('PN', f'PN-{idx+1}'))
+        row_num = 1
+        
+        for pn in sorted(matched_pns):  # Process all PNs that exist in both PFEP and NPRC
             
-            # AS IS data
-            qme_asis = row.get('AS_IS_QME', 0)
-            mdr_asis = row.get('AS_IS_MDR', '')
+            # Check if this PN has TO BE data in propose file
+            has_propose_data = pn in propose_lookup
+            qme_tobe = 0
+            mdr_tobe = ''
             
-            # TO BE data - usa o valor do arquivo, ou o valor padrão do input se não especificado
-            qme_tobe = row.get('TO_BE_QME', data.get('qme_tobe', 0))
-            mdr_tobe = row.get('TO_BE_MDR', '')
+            if has_propose_data:
+                qme_tobe = propose_lookup[pn]['qme_tobe']
+                mdr_tobe = propose_lookup[pn]['mdr_tobe']
+                
+                # Convert to numeric if needed
+                try:
+                    qme_tobe = int(qme_tobe) if qme_tobe else 0
+                except:
+                    qme_tobe = 0
             
-            # Converte para numérico se necessário
-            try:
-                qme_asis = int(qme_asis) if qme_asis else 0
-                qme_tobe = int(qme_tobe) if qme_tobe else 0
-            except:
-                qme_asis = 0
-                qme_tobe = 0
-            
-            # Busca dados do PFEP filtrado para este PN específico
+            # Get PFEP data (AS IS source) - guaranteed to exist since pn is in matched_pns
             pfep_info = {}
-            if pfep_filtered is not None:
-                pn_match = pfep_filtered[pfep_filtered['Part Number'].astype(str).str.strip() == str(pn).strip()]
+            qme_asis = 0
+            mdr_asis = ''
+            
+            if pfep_data is not None:
+                pn_match = pfep_data[pfep_data['Part Number'].astype(str).str.strip() == pn]
                 if not pn_match.empty:
                     pfep_info = pn_match.iloc[0].to_dict()
+                    # AS IS data from PFEP
+                    qme_asis = pfep_info.get('QME (Pecas/Embalagem)', 0)
+                    mdr_asis = str(pfep_info.get('MDR', '')).strip()
+                    
+                    # Convert QME AS IS to numeric
+                    try:
+                        qme_asis = int(qme_asis) if qme_asis else 0
+                    except:
+                        qme_asis = 0
             
-            # Cálculos (você pode ajustar conforme a lógica real usando dados PFEP)
-            # Aqui estamos fazendo um cálculo simples para demonstração
-            vol_asis = 10  # Volume calculado AS IS (você pode adicionar lógica real)
-            vol_tobe = 8   # Volume calculado TO BE (você pode adicionar lógica real)
-            savings = (vol_asis - vol_tobe) * 100  # Economia fictícia
+            # Get NPRC data - guaranteed to exist since pn is in matched_pns
+            # Use aggregated NPRC data (monthly volumes already summed for duplicate PNs)
+            nprc_info = {}
+            monthly_volumes = {}
             
-            # Exemplo de uso dos dados PFEP nos cálculos:
-            if pfep_info:
-                # Pode usar dados como: Metro Cúbico Semanal, Pecas por semana, etc
-                metro_cubico = pfep_info.get('Metro Cúbico Semanal', 0)
-                pecas_semana = pfep_info.get('Pecas por semana', 0)
-                fornecedor = pfep_info.get('Nome Fornecedor', '')
-                qme_pfep = pfep_info.get('QME (Pecas/Embalagem)', 0)
-                # Ajusta cálculos baseado em dados PFEP...
+            if pn in nprc_aggregated:
+                nprc_info = nprc_aggregated[pn]
+                
+                # Extract monthly volumes from aggregated NPRC
+                # Columns: '2' (Feb), '3' (Mar), '4' (Apr), '5' (May), '6' (Jun), '7' (Jul),
+                #          '8' (Aug), '9' (Sep), '10' (Oct), '11' (Nov), '12' (Dec), '1' (Jan)
+                # NOTE: Next month these will shift - start from '3' (Mar) to next year '3'
+                month_mapping = {
+                    '1': 'Jan', '2': 'Fev', '3': 'Mar', '4': 'Abr',
+                    '5': 'Mai', '6': 'Jun', '7': 'Jul', '8': 'Ago',
+                    '9': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
+                }
+                
+                for col, month_name in month_mapping.items():
+                    if col in nprc_info:
+                        monthly_volumes[month_name] = nprc_info[col]  # Already aggregated
+                    else:
+                        monthly_volumes[month_name] = 0
             
-            status = "OK" if qme_tobe > qme_asis else "Sem melhoria"
+            # Lookup volumes in MDR using MDR codes (AS IS and TO BE)
+            vol_asis_m3 = 0  # Volume in m³ AS IS
+            vol_tobe_m3 = 0  # Volume in m³ TO BE
+            peso_asis_kg = 0  # Weight in kg AS IS
+            peso_tobe_kg = 0  # Weight in kg TO BE
+            
+            if mdr_data is not None and 'MDR' in mdr_data.columns:
+                # Lookup AS IS volume using AS IS MDR
+                if mdr_asis:
+                    mdr_match_asis = mdr_data[mdr_data['MDR'].astype(str).str.strip() == mdr_asis]
+                    if not mdr_match_asis.empty:
+                        vol_asis_m3 = mdr_match_asis.iloc[0].get('VOLUME', 0)
+                        peso_asis_kg = mdr_match_asis.iloc[0].get('MDR PESO', 0)
+                        try:
+                            vol_asis_m3 = float(vol_asis_m3) if vol_asis_m3 else 0
+                            peso_asis_kg = float(peso_asis_kg) if peso_asis_kg else 0
+                        except:
+                            vol_asis_m3 = 0
+                            peso_asis_kg = 0
+                
+                # Lookup TO BE volume using TO BE MDR (if propose data exists)
+                if mdr_tobe:
+                    mdr_match_tobe = mdr_data[mdr_data['MDR'].astype(str).str.strip() == mdr_tobe]
+                    if not mdr_match_tobe.empty:
+                        vol_tobe_m3 = mdr_match_tobe.iloc[0].get('VOLUME', 0)
+                        peso_tobe_kg = mdr_match_tobe.iloc[0].get('MDR PESO', 0)
+                        try:
+                            vol_tobe_m3 = float(vol_tobe_m3) if vol_tobe_m3 else 0
+                            peso_tobe_kg = float(peso_tobe_kg) if peso_tobe_kg else 0
+                        except:
+                            vol_tobe_m3 = 0
+                            peso_tobe_kg = 0
+            
+            # Calculate savings (to be implemented)
+            savings = 0
+            
+            # Status: All PNs in results are matched (exist in both PFEP and NPRC)
+            # Highlight if this PN has propose data (TO BE)
+            status = "Matched - In Dataset"
+            if has_propose_data:
+                if qme_tobe > qme_asis:
+                    status = "Matched - TO BE Improvement"
+                else:
+                    status = "Matched - TO BE No Change"
             
             results.append({
-                "row": idx + 1,
+                "row": row_num,
                 "pn": pn,
                 "qme_asis": qme_asis,
                 "mdr_asis": mdr_asis,
                 "qme_tobe": qme_tobe,
                 "mdr_tobe": mdr_tobe,
-                "vol_asis": vol_asis,
-                "vol_tobe": vol_tobe,
+                "vol_asis_m3": vol_asis_m3,
+                "vol_tobe_m3": vol_tobe_m3,
+                "peso_asis_kg": peso_asis_kg,
+                "peso_tobe_kg": peso_tobe_kg,
+                "vol_asis": vol_asis_m3,  # Backward compat
+                "vol_tobe": vol_tobe_m3,  # Backward compat
+                "monthly_volumes": monthly_volumes,  # Monthly volumes from NPRC
                 "savings": savings,
-                "status": status
+                "status": status,
+                "has_pfep_match": True,  # All PNs in results are matched
+                "has_nprc_data": True,   # All PNs in results have NPRC data
+                "has_propose_data": has_propose_data,  # Flag if this PN is in propose file
+                "pfep_data": pfep_info,
+                "nprc_data": nprc_info
             })
+            
+            row_num += 1
         
-        # Calcula agregações mensais de QME
-        # Distribui o total de QME por 12 meses (exemplo simplificado - ajustar conforme necessidade)
-        total_qme_asis = sum(r['qme_asis'] for r in results)
-        total_qme_tobe = sum(r['qme_tobe'] for r in results)
-        qme_asis_mensal = total_qme_asis / 12
-        qme_tobe_mensal = total_qme_tobe / 12
+        # Aggregate ACTUAL monthly volumes from NPRC (not divide by 12!)
+        # Sum monthly volumes across all PNs for each month
+        months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
         
-        months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        # Initialize monthly aggregations
+        monthly_volumes_total = {month: 0 for month in months}
         
-        monthly_qme_asis = {month: qme_asis_mensal for month in months}
-        monthly_qme_tobe = {month: qme_tobe_mensal for month in months}
+        # Sum volumes from all PNs for each month
+        for result in results:
+            for month in months:
+                monthly_volumes_total[month] += result.get('monthly_volumes', {}).get(month, 0)
         
-        # Total anual de volumes transportados
+        # Create monthly dictionaries with actual NPRC volumes
+        monthly_qme_asis = {}
+        monthly_qme_tobe = {}
+        
+        for month in months:
+            # AS IS: actual NPRC volume for this month
+            monthly_qme_asis[month] = monthly_volumes_total[month]
+            
+            # TO BE: for now same as AS IS (will be different if propose data changes volumes)
+            # TODO: Apply TO BE QME adjustments if needed
+            monthly_qme_tobe[month] = monthly_volumes_total[month]
+        
+        # Total annual volumes (sum of all months)
+        total_qme_asis = sum(monthly_qme_asis.values())
+        total_qme_tobe = sum(monthly_qme_tobe.values())
+        
+        # Total annual volumes transported (from MDR)
         total_asis_anual = sum(r['vol_asis'] for r in results) * 12
         total_tobe_anual = sum(r['vol_tobe'] for r in results) * 12
         
+        print(f"\nMonthly Volume Totals (from NPRC):")
+        for month in months:
+            print(f"  {month}: {monthly_volumes_total[month]:.0f}")
+        print(f"  Total Annual: {total_qme_asis:.0f}\n")
+        
+        # Count PNs with propose data
+        pns_with_propose = sum(1 for r in results if r.get('has_propose_data', False))
+        pns_without_propose = len(results) - pns_with_propose
+        
+        print(f"\n{'='*60}")
+        print(f"FINAL DATASET SUMMARY")
+        print(f"{'='*60}")
+        print(f"Total PNs in dataset (PFEP+NPRC intersection): {len(results)}")
+        print(f"PNs with TO BE data (from propose file): {pns_with_propose}")
+        print(f"PNs without TO BE data: {pns_without_propose}")
+        print(f"{'='*60}\n")
+        
         response = {
             "status": "success",
-            "message": f"Simulação concluída para {len(results)} linhas.",
+            "message": f"Dataset created with {len(results)} PNs (PFEP+NPRC intersection).",
             "results": results,
             "summary": {
-                "total_rows": len(self.asis_data),  # Total de linhas no arquivo Astobe
+                "total_rows": len(results),  # Total PNs in dataset (PFEP+NPRC intersection)
                 "total_savings": sum(r['savings'] for r in results),
-                "matched_rows": len(matched_rows),  # Linhas com match na PFEP
-                "unmatched_rows": len(unmatched_rows),  # Linhas sem match na PFEP
+                "matched_rows": len(results),  # All rows are matched (PFEP+NPRC)
+                "unmatched_rows": 0,  # No unmatched rows in dataset
+                "pns_with_propose": pns_with_propose,  # PNs that have TO BE data
+                "pns_without_propose": pns_without_propose,  # PNs without TO BE data
                 "monthly_qme_asis": monthly_qme_asis,
                 "monthly_qme_tobe": monthly_qme_tobe,
                 "total_qme_asis": total_qme_asis,
@@ -170,10 +353,9 @@ class QMECalculator:
                 "saving_12_meses": total_asis_anual - total_tobe_anual
             },
             "matching": {
-                "matched_rows": matched_rows,
-                "unmatched_rows": unmatched_rows,
-                "matched_count": len(matched_rows),
-                "unmatched_count": len(unmatched_rows)
+                "total_matched_pns": len(results),  # Total PNs in PFEP+NPRC
+                "propose_pns_in_dataset": propose_pns_in_dataset,  # Which propose PNs are in dataset
+                "propose_pns_not_in_dataset": propose_pns_not_in_dataset  # Which propose PNs are NOT in dataset
             }
         }
         

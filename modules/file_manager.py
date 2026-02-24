@@ -41,9 +41,9 @@ class FileManager:
                     # Row 0: PN, AS IS, , TO BE, 
                     # Row 1: , QME, MDR, QME, MDR
                     if file_path.endswith('.csv'):
-                        df_raw = pd.read_csv(file_path)
+                        df_raw = pd.read_csv(file_path, sheet_name="Proposta")
                     else:
-                        df_raw = pd.read_excel(file_path)
+                        df_raw = pd.read_excel(file_path,sheet_name="Proposta")
                     
                     
                     # As primeira linha contém os nomes das colunas reais
@@ -63,13 +63,13 @@ class FileManager:
                             # Unnamed: 2 = MDR AS IS
                             # TO BE = QME TO BE
                             # Unnamed: 4 = MDR TO BE
-                            new_columns = ['PN', 'AS_IS_QME', 'AS_IS_MDR', 'TO_BE_QME', 'TO_BE_MDR']
+                            new_columns = ['PN', 'TO_BE_QME', 'TO_BE_MDR']
                             df.columns = new_columns[:len(df.columns)]
                         else:
                             df = df_raw.copy()
                             # Se não tem o padrão esperado, tenta renomear baseado em posição
                             if len(df.columns) >= 5:
-                                new_columns = ['PN', 'AS_IS_QME', 'AS_IS_MDR', 'TO_BE_QME', 'TO_BE_MDR']
+                                new_columns = ['PN', 'TO_BE_QME', 'TO_BE_MDR']
                                 df.columns = new_columns[:len(df.columns)]
                     else:
                         df = df_raw.copy()

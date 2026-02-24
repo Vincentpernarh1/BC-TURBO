@@ -1,7 +1,20 @@
 import webview
 import os
 import pandas as pd
+import math
 from modules import SAPLookup, QMECalculator, FileManager, ExportManager
+
+
+def clean_nan_values(obj):
+    """Recursively replace NaN values with None for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: clean_nan_values(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_nan_values(item) for item in obj]
+    elif isinstance(obj, float) and math.isnan(obj):
+        return None
+    else:
+        return obj
 
 
 class Api:
@@ -73,8 +86,25 @@ class Api:
         # Obtém o DataFrame completo de PFEP para filtrar por PNs do Astobe
         pfep_data = self.sap_lookup.get_pfep_data()
         
-        # Passa tanto os dados do formulário quanto os dados PFEP completos para o calculador
-        return self.qme_calculator.calculate(data, pfep_data)
+        # Obtém o DataFrame FILTRADO de NPRC do último lookup SAP (não o completo)
+        # Isso garante que usamos apenas os dados NPRC relevantes para o SAP selecionado
+        nprc_data = self.sap_lookup.get_cached_nprc_data()
+        
+        # Se não houver cache, usa o completo como fallback
+        if nprc_data is None:
+            nprc_data = self.sap_lookup.get_nprc_data()
+            print("WARNING: Using full NPRC database (no cached filter available)")
+        else:
+            print(f"Using cached NPRC data: {len(nprc_data)} rows filtered by SAP lookup")
+        
+        # Obtém o DataFrame completo de MDR para lookup de volumes
+        mdr_data = self.sap_lookup.get_mdr_data()
+        
+        # Passa tanto os dados do formulário quanto os dados PFEP, NPRC e MDR completos para o calculador
+        result = self.qme_calculator.calculate(data, pfep_data, nprc_data, mdr_data)
+        
+        # Clean NaN values before returning (NaN is not valid JSON)
+        return clean_nan_values(result)
     
     def export_results(self, filename=None):
         """Exporta os resultados para Excel"""

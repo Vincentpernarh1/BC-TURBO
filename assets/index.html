@@ -57,7 +57,8 @@
                     📂 <strong>Atenção:</strong> Por favor, selecione a pasta <strong>Database Folder</strong> no topo da página antes de inserir dados.
                 </div>
                 
-                <div class="input-grid">
+                <!-- First Row: Project and Location Info -->
+                <div class="input-grid-row1">
                     <div class="form-group">
                         <label>Código do Projeto</label>
                         <input title="cod_projeto" type="text" id="cod_projeto" placeholder="Ex: PROJ-001" disabled class="disabled-input">
@@ -82,7 +83,10 @@
                         <label>Cidade Destino</label>
                         <input title="destino" type="text" id="destino" disabled class="disabled-input">
                     </div>
+                </div>
 
+                <!-- Second Row: Auto-populated Fields -->
+                <div class="input-grid-row2">
                     <div class="form-group">
                         <label>Fornecedor <span class="label-grey">(Auto)</span></label>
                         <input title="fornecedor" type="text" id="fornecedor" class="input-readonly" readonly>
@@ -93,19 +97,33 @@
                     </div>
                     <div class="form-group">
                         <label>Transportadora <span class="label-grey">(Auto)</span></label>
-                        <input title="transportadora" type="text" id="transportadora" class="input-readonly" readonly>
+                        <select title="transportadora" id="transportadora" class="input-readonly" disabled>
+                            <option value="">Selecione...</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Veículo Atual <span class="label-grey">(Auto)</span></label>
-                        <input title="veiculo" type="text" id="veiculo" class="input-readonly" readonly>
+                        <select title="veiculo" id="veiculo" class="input-readonly" disabled>
+                            <option value="">Selecione...</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
                         <label>Fluxo <span class="label-grey">(Auto)</span></label>
-                        <input title="fluxo" type="text" id="fluxo" class="input-readonly" readonly>
+                        <select title="fluxo" id="fluxo" class="input-readonly" disabled>
+                            <option value="">Selecione...</option>
+                        </select>
                     </div>
 
-                   <div class="comparison-box">
+                    <div class="form-group">
+                        <label>Trip <span class="label-grey">(Auto)</span></label>
+                        <select title="trip" id="trip" class="input-readonly" disabled>
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-grid">
                         <div class="comparison-box-inner">
                             <div class="form-group comparison-left">
                                 <label class="label-grey">📊 Dados de Simulação</label>
@@ -402,18 +420,51 @@
                         <!-- Detailed Results Table (Initially Hidden) -->
                         <div id="detailed-results-section" class="hidden-section">
                             <h4 class="section-header">📊 Detalhes por PN</h4>
+                            
+                            <!-- Legend Box -->
+                            <div class="legend-box">
+                                <strong class="legend-title">📌 Legenda:</strong>
+                                <div class="legend-items">
+                                    <div class="legend-item">
+                                        <div class="legend-color-matched"></div>
+                                        <span>PN Found in PFEP (AS IS data available)</span>
+                                    </div>
+                                    <div class="legend-item">
+                                        <div class="legend-color-unmatched"></div>
+                                        <span>PN NOT Found in PFEP (no AS IS data)</span>
+                                    </div>
+                                </div>
+                                <div class="legend-note">
+                                    💡 <em>AS IS data (QME, MDR) comes from PFEP database. TO BE data comes from propose file.</em>
+                                </div>
+                            </div>
+                            
                             <div class="table-wrapper">
                                 <table id="dashboard-results-table">
                                     <thead>
                                         <tr>
                                             <th class="th-left">Linha</th>
                                             <th class="th-left">PN</th>
+                                            <th class="th-center">Jan</th>
+                                            <th class="th-center">Fev</th>
+                                            <th class="th-center">Mar</th>
+                                            <th class="th-center">Abr</th>
+                                            <th class="th-center">Mai</th>
+                                            <th class="th-center">Jun</th>
+                                            <th class="th-center">Jul</th>
+                                            <th class="th-center">Ago</th>
+                                            <th class="th-center">Set</th>
+                                            <th class="th-center">Out</th>
+                                            <th class="th-center">Nov</th>
+                                            <th class="th-center">Dez</th>
                                             <th class="th-center">QME AS IS</th>
                                             <th class="th-center">MDR AS IS</th>
+                                            <th class="th-center">Vol AS IS (m³)</th>
+                                            <th class="th-center">Peso AS IS (kg)</th>
                                             <th class="th-center">QME TO BE</th>
                                             <th class="th-center">MDR TO BE</th>
-                                            <th class="th-center">Vol AS IS</th>
-                                            <th class="th-center">Vol TO BE</th>
+                                            <th class="th-center">Vol TO BE (m³)</th>
+                                            <th class="th-center">Peso TO BE (kg)</th>
                                             <th class="th-center">Economia</th>
                                             <th class="th-center">Status</th>
                                         </tr>

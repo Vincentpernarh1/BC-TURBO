@@ -116,17 +116,53 @@ function lookupSAPData() {
         
         if (response.status === 'success') {
             const data = response.data;
+            
             // Preenche os campos automaticamente
             if (data['Nome Fornecedor']) document.getElementById('fornecedor').value = data['Nome Fornecedor'];
-            if (data.Transportadora) document.getElementById('transportadora').value = data.Transportadora;
             if (data['Estado Fornecedor']) document.getElementById('uf').value = data['Estado Fornecedor'];
-            if (data['Veiculo a ser Utilizado']) document.getElementById('veiculo').value = data['Veiculo a ser Utilizado'];
-            if (data['Cidade Fornecedor']) document.getElementById('origem').value = data['Cidade Fornecedor'];
-            if (data['Destino Materiais']) document.getElementById('destino').value = data['Destino Materiais'];
-            if (data['Tipo de Fluxo']) document.getElementById('fluxo').value = data['Tipo de Fluxo'];
             
-            // Mostra mensagem de sucesso
-            showToast('✅ Dados carregados com sucesso!', 'success');
+            // Preenche origem - pode ser Cidade Fornecedor ou CrossDock
+            if (data['Cidade Fornecedor']) {
+                document.getElementById('origem').value = data['Cidade Fornecedor'];
+            } else if (data['CrossDock']) {
+                document.getElementById('origem').value = data['CrossDock'];
+            }
+            
+            // Verifica se TDC precisa de destino IMS
+            if (response.tdc_needs_destino) {
+                // Marca o campo destino como requerido (vermelho)
+                const destinoField = document.getElementById('destino');
+                destinoField.classList.add('required-field');
+                destinoField.placeholder = 'Digite o Código IMS Destino';
+                
+                // Desabilita os dropdowns TDC
+                disableTDCDropdowns();
+                
+                // Mostra mensagem ao usuário
+                showToast('⚠️ Digite o Código IMS Destino para carregar dados TDC completos', 'warning');
+                
+                // Se temos cod_ims_origem, pode mostrar em algum lugar para referência
+                if (response.cod_ims_origem) {
+                    console.log('IMS Origem:', response.cod_ims_origem);
+                }
+            } else {
+                // Remove marcação de campo requerido
+                const destinoField = document.getElementById('destino');
+                destinoField.classList.remove('required-field');
+                destinoField.placeholder = '';
+                
+                // Popula dropdowns TDC se temos opções
+                if (response.tdc_options) {
+                    populateTDCDropdowns(response.tdc_options, data);
+                    
+                    // Habilita dropdowns TDC
+                    enableTDCDropdowns();
+                }
+                
+                // Mostra mensagem de sucesso completo
+                showToast('✅ Dados carregados com sucesso!', 'success');
+            }
+            
         } else if (response.status === 'not_found') {
             showToast('⚠️ ' + response.message, 'warning');
         } else if (response.status === 'error') {
@@ -138,8 +174,97 @@ function lookupSAPData() {
     });
 }
 
+function populateTDCDropdowns(options, data) {
+    // Popula Transportadora
+    const transportadoraSelect = document.getElementById('transportadora');
+    transportadoraSelect.innerHTML = '<option value="">Selecione...</option>';
+    if (options.Transportadora && options.Transportadora.length > 0) {
+        options.Transportadora.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            // Marca como selecionada se for o valor padrão
+            if (data.Transportadora === option) {
+                opt.selected = true;
+            }
+            transportadoraSelect.appendChild(opt);
+        });
+    }
+    
+    // Popula Veiculo
+    const veiculoSelect = document.getElementById('veiculo');
+    veiculoSelect.innerHTML = '<option value="">Selecione...</option>';
+    if (options.Veiculo && options.Veiculo.length > 0) {
+        options.Veiculo.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            // Marca como selecionada se for o valor padrão
+            if (data.Veiculo === option) {
+                opt.selected = true;
+            }
+            veiculoSelect.appendChild(opt);
+        });
+    }
+    
+    // Popula Fluxo
+    const fluxoSelect = document.getElementById('fluxo');
+    fluxoSelect.innerHTML = '<option value="">Selecione...</option>';
+    if (options.Fluxo && options.Fluxo.length > 0) {
+        options.Fluxo.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            // Marca como selecionada se for o valor padrão
+            if (data['Fluxo Viagem'] === option) {
+                opt.selected = true;
+            }
+            fluxoSelect.appendChild(opt);
+        });
+    }
+    
+    // Popula Trip
+    const tripSelect = document.getElementById('trip');
+    tripSelect.innerHTML = '<option value="">Selecione...</option>';
+    if (options.Trip && options.Trip.length > 0) {
+        options.Trip.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option;
+            opt.textContent = option;
+            // Marca como selecionada se for o valor padrão
+            if (data.Trip === option) {
+                opt.selected = true;
+            }
+            tripSelect.appendChild(opt);
+        });
+    }
+}
+
+function enableTDCDropdowns() {
+    const dropdowns = ['transportadora', 'veiculo', 'fluxo', 'trip'];
+    dropdowns.forEach(id => {
+        const dropdown = document.getElementById(id);
+        if (dropdown) {
+            dropdown.disabled = false;
+            dropdown.classList.remove('disabled-input');
+        }
+    });
+}
+
+function disableTDCDropdowns() {
+    const dropdowns = ['transportadora', 'veiculo', 'fluxo', 'trip'];
+    dropdowns.forEach(id => {
+        const dropdown = document.getElementById(id);
+        if (dropdown) {
+            dropdown.disabled = true;
+            dropdown.classList.add('disabled-input');
+            dropdown.innerHTML = '<option value="">Selecione...</option>';
+        }
+    });
+}
+
 function showLoadingInFields() {
-    const fields = ['fornecedor', 'transportadora', 'veiculo', 'fluxo'];
+    const fields = ['fornecedor'];
     fields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
         if (field) {
@@ -147,10 +272,13 @@ function showLoadingInFields() {
             field.classList.add('loading');
         }
     });
+    
+    // Desabilita dropdowns durante carregamento
+    disableTDCDropdowns();
 }
 
 function hideLoadingInFields() {
-    const fields = ['fornecedor', 'transportadora', 'veiculo', 'fluxo'];
+    const fields = ['fornecedor'];
     fields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
         if (field) {
@@ -205,13 +333,49 @@ function handleSAPInput(event) {
     }, 2000); // 2 segundos
 }
 
+// Função de debounce para quando o usuário digita IMS Destino
+let destinoLookupTimeout = null;
+
+function handleDestinoInput(event) {
+    // Verifica se o database foi selecionado
+    if (!isDatabaseSelected()) {
+        showToast('⚠️ Por favor, selecione a pasta Database primeiro!', 'warning');
+        return;
+    }
+    
+    // Verifica se há um código SAP já digitado
+    const codSap = document.getElementById('cod_sap').value;
+    if (!codSap || codSap.trim() === '') {
+        showToast('⚠️ Por favor, digite o Código SAP/IMS primeiro!', 'warning');
+        return;
+    }
+    
+    // Limpa o timeout anterior
+    if (destinoLookupTimeout) {
+        clearTimeout(destinoLookupTimeout);
+    }
+    
+    const destino = event.target.value;
+    
+    // Se o campo estiver vazio, não faz nada
+    if (!destino || destino.trim() === '') {
+        return;
+    }
+    
+    // Aguarda 2 segundos após o usuário parar de digitar
+    destinoLookupTimeout = setTimeout(() => {
+        // Trigger novo lookup com o destino preenchido
+        lookupSAPData();
+    }, 2000); // 2 segundos
+}
+
 function isDatabaseSelected() {
     const dbLabel = document.getElementById('lbl-db');
     return dbLabel && dbLabel.innerText !== "Not Selected";
 }
 
 function enableQMEInputs() {
-    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino'];
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip'];
     inputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
@@ -224,7 +388,7 @@ function enableQMEInputs() {
 }
 
 function disableQMEInputs() {
-    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino'];
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip'];
     inputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
@@ -496,17 +660,40 @@ function displayResults(response) {
         const tr = document.createElement('tr');
         tr.className = 'table-row';
         
-        const statusClass = row.status === 'OK' ? 'status-ok' : 'status-warning';
+        // Highlight rows with PFEP match (green background)
+        if (row.has_pfep_match) {
+            tr.style.backgroundColor = '#e8f5e9';  // Light green for matched PNs
+        } else {
+            tr.style.backgroundColor = '#ffebee';  // Light red for unmatched PNs
+        }
+        
+        // Status badge styling
+        let statusClass = 'status-warning';
+        if (row.status.includes('Matched - Improvement')) {
+            statusClass = 'status-ok';
+        } else if (row.status.includes('Matched')) {
+            statusClass = 'status-info';
+        }
+        
+        // Get monthly volumes
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const monthlyVolumesHTML = months.map(month => {
+            const vol = row.monthly_volumes && row.monthly_volumes[month] ? row.monthly_volumes[month].toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0}) : '-';
+            return `<td class="td-center">${vol}</td>`;
+        }).join('');
         
         tr.innerHTML = `
             <td class="td-label">${row.row}</td>
-            <td class="td-label">${row.pn}</td>
-            <td class="td-center">${row.qme_asis}</td>
+            <td class="td-label"><strong>${row.pn}</strong></td>
+            ${monthlyVolumesHTML}
+            <td class="td-center">${row.qme_asis || '-'}</td>
             <td class="td-center">${row.mdr_asis || '-'}</td>
-            <td class="td-center">${row.qme_tobe}</td>
+            <td class="td-center">${row.vol_asis_m3 ? row.vol_asis_m3.toFixed(4) : '-'}</td>
+            <td class="td-center">${row.peso_asis_kg ? row.peso_asis_kg.toFixed(2) : '-'}</td>
+            <td class="td-center">${row.qme_tobe || '-'}</td>
             <td class="td-center">${row.mdr_tobe || '-'}</td>
-            <td class="td-center">${row.vol_asis}</td>
-            <td class="td-center">${row.vol_tobe}</td>
+            <td class="td-center">${row.vol_tobe_m3 ? row.vol_tobe_m3.toFixed(4) : '-'}</td>
+            <td class="td-center">${row.peso_tobe_kg ? row.peso_tobe_kg.toFixed(2) : '-'}</td>
             <td class="td-value">R$ ${row.savings.toLocaleString('pt-BR')}</td>
             <td class="td-center">
                 <span class="status-badge ${statusClass}">
@@ -561,6 +748,13 @@ window.addEventListener('pywebviewready', function() {
         console.log('SAP auto-fetch listener attached');
     }
     
+    // Adiciona listener para o campo destino (IMS Destino)
+    const destinoInput = document.getElementById('destino');
+    if (destinoInput) {
+        destinoInput.addEventListener('input', handleDestinoInput);
+        console.log('Destino auto-fetch listener attached');
+    }
+    
     // Inicializa o estado dos inputs baseado na seleção do database
     initializeInputState();
 });
@@ -572,6 +766,14 @@ document.addEventListener('DOMContentLoaded', function() {
         sapInput.addEventListener('input', handleSAPInput);
         sapInput.setAttribute('data-listener-attached', 'true');
         console.log('SAP auto-fetch listener attached (DOMContentLoaded)');
+    }
+    
+    // Adiciona listener para o campo destino
+    const destinoInput = document.getElementById('destino');
+    if (destinoInput && !destinoInput.hasAttribute('data-destino-listener-attached')) {
+        destinoInput.addEventListener('input', handleDestinoInput);
+        destinoInput.setAttribute('data-destino-listener-attached', 'true');
+        console.log('Destino auto-fetch listener attached (DOMContentLoaded)');
     }
     
     // Inicializa o estado dos inputs
