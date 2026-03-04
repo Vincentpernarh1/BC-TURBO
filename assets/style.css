@@ -852,6 +852,12 @@ table td, table th {
     border-left-color: #dc3545;
 }
 
+.toast-message.toast-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border-left-color: #17a2b8;
+}
+
 @keyframes slideDown {
     from {
         transform: translateY(-50px);
@@ -1486,3 +1492,78 @@ table td, table th {
     text-align: left;
     font-size: 0.75rem;
 }
+
+/* ============================================= */
+/* VIAJANTE RESULTS STYLING */
+/* ============================================= */
+
+#viajante-results-section {
+    margin-top: 30px;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+#viajante-results-section h3 {
+    color: var(--stellantis-blue);
+    margin-bottom: 15px;
+    font-size: 1.3rem;
+    border-bottom: 2px solid var(--stellantis-blue);
+    padding-bottom: 10px;
+}
+
+#viajante-results-section .table-container {
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+#viajante-results-section .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+#viajante-results-section .results-table thead {
+    position: sticky;
+    top: 0;
+    background: var(--stellantis-blue);
+    color: white;
+    z-index: 10;
+}
+
+#viajante-results-section .results-table th {
+    padding: 10px 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#viajante-results-section .results-table td {
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+/* Saturation-based row highlighting */
+#viajante-results-section .results-table tr.high-saturation {
+    background-color: #fff3cd; /* Light yellow for over-saturation */
+}
+
+#viajante-results-section .results-table tr.low-saturation {
+    background-color: #d1ecf1; /* Light blue for under-saturation */
+}
+
+#viajante-results-section .results-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+#viajante-results-section .results-table tr.high-saturation:hover {
+    background-color: #ffe69c;
+}
+
+#viajante-results-section .results-table tr.low-saturation:hover {
+    background-color: #bee5eb;
+}
+

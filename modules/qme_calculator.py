@@ -393,33 +393,33 @@ class QMECalculator:
         total_asis_anual = sum(r['vol_asis'] for r in results) * 12
         total_tobe_anual = sum(r['vol_tobe'] for r in results) * 12
         
-        print(f"\nMonthly Volume Totals (from NPRC):")
-        for month in months:
-            print(f"  {month}: {monthly_volumes_total[month]:.0f}")
-        print(f"  Total Annual: {total_qme_asis:.0f}\n")
+        # print(f"\nMonthly Volume Totals (from NPRC):")
+        # for month in months:
+        #     print(f"  {month}: {monthly_volumes_total[month]:.0f}")
+        # print(f"  Total Annual: {total_qme_asis:.0f}\n")
         
-        print(f"\nMonthly M³ Totals:")
-        print(f"  AS IS:")
-        for month in months:
-            print(f"    {month}: {monthly_m3_asis_total[month]:.2f} m³")
-        print(f"    Total Annual AS IS: {sum(monthly_m3_asis_total.values()):.2f} m³")
-        print(f"  TO BE:")
-        for month in months:
-            print(f"    {month}: {monthly_m3_tobe_total[month]:.2f} m³")
-        print(f"    Total Annual TO BE: {sum(monthly_m3_tobe_total.values()):.2f} m³")
-        print(f"    Saving M³ (12 months): {sum(monthly_m3_asis_total.values()) - sum(monthly_m3_tobe_total.values()):.2f} m³\n")
+        # print(f"\nMonthly M³ Totals:")
+        # print(f"  AS IS:")
+        # for month in months:
+        #     print(f"    {month}: {monthly_m3_asis_total[month]:.2f} m³")
+        # print(f"    Total Annual AS IS: {sum(monthly_m3_asis_total.values()):.2f} m³")
+        # print(f"  TO BE:")
+        # for month in months:
+        #     print(f"    {month}: {monthly_m3_tobe_total[month]:.2f} m³")
+        # print(f"    Total Annual TO BE: {sum(monthly_m3_tobe_total.values()):.2f} m³")
+        # print(f"    Saving M³ (12 months): {sum(monthly_m3_asis_total.values()) - sum(monthly_m3_tobe_total.values()):.2f} m³\n")
         
         # Count PNs with propose data
         pns_with_propose = sum(1 for r in results if r.get('has_propose_data', False))
         pns_without_propose = len(results) - pns_with_propose
         
-        print(f"\n{'='*60}")
-        print(f"FINAL DATASET SUMMARY")
-        print(f"{'='*60}")
-        print(f"Total PNs in dataset (PFEP+NPRC intersection): {len(results)}")
-        print(f"PNs with TO BE data (from propose file): {pns_with_propose}")
-        print(f"PNs without TO BE data: {pns_without_propose}")
-        print(f"{'='*60}\n")
+        # print(f"\n{'='*60}")
+        # print(f"FINAL DATASET SUMMARY")
+        # print(f"{'='*60}")
+        # print(f"Total PNs in dataset (PFEP+NPRC intersection): {len(results)}")
+        # print(f"PNs with TO BE data (from propose file): {pns_with_propose}")
+        # print(f"PNs without TO BE data: {pns_without_propose}")
+        # print(f"{'='*60}\n")
         
         response = {
             "status": "success",

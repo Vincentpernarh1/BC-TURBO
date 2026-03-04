@@ -4,7 +4,8 @@ Módulo para busca de dados SAP
 import pandas as pd
 from pathlib import Path
 import os
-
+import traceback
+  
 class SAPLookup:
     def __init__(self, db_folder=None):
         self.db_folder = db_folder
@@ -81,7 +82,8 @@ class SAPLookup:
             # Mantém compatibilidade com formato antigo se existir
             if 'CodigoFornecedor' in df.columns:
                 df['CodigoFornecedor'] = pd.to_numeric(df['CodigoFornecedor'], errors='coerce').fillna(0).astype('Int64').astype(str).replace('0', '').replace('<NA>', '')
-                
+            
+            
         return df
     
     def _load_pfep_files(self):
@@ -510,8 +512,8 @@ class SAPLookup:
                     
                     related_pns = self.pfep_data[mask]['Part Number'].astype(str).str.strip().tolist()
                     
-                    print(f"NPRC lookup: filtering by {len(related_pns)} PNs from PFEP...")
-                    print(f"  Sample PNs from PFEP: {related_pns[:5]}")
+                    # print(f"NPRC lookup: filtering by {len(related_pns)} PNs from PFEP...")
+                    # print(f"  Sample PNs from PFEP: {related_pns[:5]}")
                     
                     # Verifica se coluna PN existe no NPRC
                     if 'PN' in self.nprc_data.columns:
@@ -755,3 +757,202 @@ class SAPLookup:
                 return nprc_result
         
         return None
+    
+    def prepare_viajante_data(self, cod_sap, cidade_destino=None, veiculo=None):
+        """
+        Prepara dados para integração com Viajante
+        Cria arquivo no formato: Mês, COD FORNECEDOR, DESENHO, QTDE
+        
+        Args:
+            cod_sap: Código SAP do fornecedor
+            cidade_destino: Código IMS Destino (opcional)
+            veiculo: Tipo de veículo selecionado (opcional)
+            
+        Returns:
+            Tuple (status_dict, dataframe)
+        """
+        try:
+            # Get cached NPRC data (already filtered by PNs from lookup)
+            nprc_filtered = self.get_cached_nprc_data()
+            
+            if nprc_filtered is None or nprc_filtered.empty:
+                return {
+                    "status": "error",
+                    "message": "Nenhum dado NPRC disponível. Execute um lookup SAP primeiro."
+                }, None
+            
+            # Clean COD SAP
+            if isinstance(cod_sap, (int, float)):
+                cod_sap_str = str(int(cod_sap)).strip()
+            else:
+                cod_sap_str = str(cod_sap).strip().replace('.0', '')
+            
+            # Identify month columns (numbers, abbreviations, or full names)
+            month_columns = []
+            common_months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+                            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+            
+            for col in nprc_filtered.columns:
+                col_str = str(col).strip()
+                # Check if column is a month name/abbreviation
+                if col in common_months or any(month.lower() in col_str.lower() for month in common_months):
+                    month_columns.append(col)
+                # Check if column is a month number (1-12)
+                elif col_str in [str(i) for i in range(1, 13)]:
+                    month_columns.append(col)
+                # Check if it's numeric but not PN
+                elif col != 'PN' and col_str != 'PN' and pd.api.types.is_numeric_dtype(nprc_filtered[col]):
+                    # Additional check: column name should be short (likely a month indicator)
+                    if len(col_str) <= 3 or col_str.replace('.', '').replace(',', '').isdigit():
+                        month_columns.append(col)
+            
+            if not month_columns:
+                return {
+                    "status": "error",
+                    "message": "Nenhuma coluna de mês identificada no NPRC."
+                }, None
+            
+            print(f"Identified {len(month_columns)} month columns: {month_columns[:12]}")
+            
+            # Melt DataFrame from wide to long format
+            # PN stays as identifier, month columns become (Mês, QTDE) pairs
+            demanda_df = nprc_filtered.melt(
+                id_vars=['PN'],
+                value_vars=month_columns,
+                var_name='Mês',
+                value_name='QTDE'
+            )
+            
+            # Convert month numbers to abbreviations (Jan, Feb, Mar...)
+            month_mapping = {
+                '1': 'Jan', '2': 'Feb', '3': 'Mar', '4': 'Apr',
+                '5': 'May', '6': 'Jun', '7': 'Jul', '8': 'Aug',
+                '9': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec',
+                1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr',
+                5: 'May', 6: 'Jun', 7: 'Jul', 8: 'Aug',
+                9: 'Sep', 10: 'Oct', 11: 'Nov', 12: 'Dec'
+            }
+            
+            # Apply mapping - if month is already abbreviated, keep it
+            demanda_df['Mês'] = demanda_df['Mês'].apply(
+                lambda x: month_mapping.get(str(x).strip(), month_mapping.get(x, x))
+            )
+            
+            # Add COD FORNECEDOR column
+            demanda_df['COD FORNECEDOR'] = cod_sap_str
+            
+            # Rename PN to DESENHO
+            demanda_df = demanda_df.rename(columns={'PN': 'DESENHO'})
+            
+            # Reorder columns: Mês, COD FORNECEDOR, DESENHO, QTDE
+            demanda_df = demanda_df[['Mês', 'COD FORNECEDOR', 'DESENHO', 'QTDE']]
+            
+            # Convert QTDE to numeric and remove invalid/zero values
+            demanda_df['QTDE'] = pd.to_numeric(demanda_df['QTDE'], errors='coerce')
+            demanda_df = demanda_df[demanda_df['QTDE'].notna()]
+            demanda_df = demanda_df[demanda_df['QTDE'] > 0]
+            
+            # Aggregate QTDE by Month, COD FORNECEDOR, and DESENHO (sum quantities for same PN in same month)
+            demanda_df = demanda_df.groupby(['Mês', 'COD FORNECEDOR', 'DESENHO'], as_index=False)['QTDE'].sum()
+            
+            # Sort by month and DESENHO
+            demanda_df = demanda_df.sort_values(['Mês', 'DESENHO']).reset_index(drop=True)
+            
+            # Store in self for later use (Viajante integration)
+            self.viajante_demanda_data = demanda_df
+            self.viajante_cidade_destino = cidade_destino
+            self.viajante_veiculo = veiculo
+            
+            # Determine save path: Viajante/Demandas/ folder
+            # Try to find Viajante folder relative to workspace
+            workspace_path = None
+            
+            if self.db_folder:
+                # DB folder is likely inside workspace, go up to find Viajante
+                db_path = Path(self.db_folder)
+                # Try to find workspace root by going up until we find a folder containing 'Viajante'
+                for parent in [db_path.parent, db_path.parent.parent, db_path.parent.parent.parent]:
+                    viajante_candidate = parent / "Viajante"
+                    if viajante_candidate.exists() or True:  # Create if doesn't exist
+                        workspace_path = parent
+                        break
+            
+            if workspace_path is None:
+                # Fallback to current working directory
+                workspace_path = Path.cwd()
+            
+            viajante_path = workspace_path / "Viajante"
+            demandas_folder = viajante_path / "Demandas"
+            
+            # Ensure folder exists
+            try:
+                demandas_folder.mkdir(parents=True, exist_ok=True)
+                print(f"  Ensured folder exists: {demandas_folder}")
+            except Exception as e:
+                print(f"  Warning: Could not create folder {demandas_folder}: {e}")
+            
+            # Generate filename (no timestamp - one file per SAP, gets overwritten)
+            filename = f"Demanda_{cod_sap_str}.xlsx"
+            file_path = demandas_folder / filename
+            
+            # Save to Excel with error handling
+            try:
+                demanda_df.to_excel(file_path, index=False, engine='openpyxl')
+                print(f"\n✓ Viajante demand file SAVED successfully!")
+                print(f"  File path: {file_path}")
+                print(f"  File exists: {file_path.exists()}")
+                print(f"  File size: {file_path.stat().st_size if file_path.exists() else 'N/A'} bytes")
+            except Exception as e:
+                print(f"\n❌ Error saving file: {e}")
+                traceback.print_exc()
+                return {
+                    "status": "error",
+                    "message": f"Erro ao salvar arquivo: {str(e)}"
+                }, None
+            
+            print(f"  Total rows: {len(demanda_df)}")
+            print(f"  Unique PNs (DESENHO): {demanda_df['DESENHO'].nunique()}")
+            
+            # Show months with proper ordering (Jan, Feb, Mar...)
+            month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            unique_months = demanda_df['Mês'].unique().tolist()
+            sorted_months = [m for m in month_order if m in unique_months]
+            
+            # print(f"  Months covered: {sorted_months}")
+            # print(f"  Sample data:")
+            # print(demanda_df.head(10).to_string(index=False))
+            
+            return {
+                "status": "success",
+                "message": f"Arquivo de demanda criado com {len(demanda_df)} registros",
+                "file_path": str(file_path),
+                "total_rows": len(demanda_df),
+                "unique_pns": int(demanda_df['DESENHO'].nunique()),
+                "months": sorted_months,
+                "cidade_destino": cidade_destino,
+                "veiculo": veiculo
+            }, demanda_df
+            
+        except Exception as e:
+            print(f"Error in prepare_viajante_data: {str(e)}")
+          
+            traceback.print_exc()
+            return {
+                "status": "error",
+                "message": f"Erro ao preparar dados Viajante: {str(e)}"
+            }, None
+    
+    def get_viajante_demanda_data(self):
+        """Retorna o DataFrame de demanda preparado para Viajante (se disponível)"""
+        return getattr(self, 'viajante_demanda_data', None)
+    
+    def get_viajante_parameters(self):
+        """Retorna os parâmetros armazenados para integração com Viajante"""
+        return {
+            'demanda_data': getattr(self, 'viajante_demanda_data', None),
+            'cidade_destino': getattr(self, 'viajante_cidade_destino', None),
+            'veiculo': getattr(self, 'viajante_veiculo', None)
+        }

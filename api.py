@@ -23,6 +23,7 @@ class Api:
         self.result_folder = ""
         self.loading_status = ""
         self.is_loading = False
+        self.viajante_results = None  # Store Viajante processing results
         
         # Inicializa os módulos de processamento
         self.sap_lookup = SAPLookup()
@@ -80,6 +81,213 @@ class Api:
         """Busca dados complementares baseado no SAP e outros inputs"""
         return self.sap_lookup.lookup_data(cod_sap, planta, cidade_origem, cidade_destino)
     
+    def prepare_viajante_data(self, cod_sap, cidade_destino=None, veiculo=None):
+        """
+        Prepara dados para integração com Viajante
+        Cria arquivo no formato: Mês, COD FORNECEDOR, DESENHO, QTDE
+        
+        Args:
+            cod_sap: Código SAP do fornecedor
+            cidade_destino: Código IMS Destino (opcional)
+            veiculo: Tipo de veículo selecionado (opcional)
+            
+        Returns:
+            Status dict com informações sobre o arquivo gerado
+        """
+        status, dataframe = self.sap_lookup.prepare_viajante_data(cod_sap, cidade_destino, veiculo)
+        
+        
+        
+        
+        # Clean NaN values before returning (NaN is not valid JSON)
+        return clean_nan_values(status)
+    
+    def run_viajante(self, cod_sap):
+        """
+        Executa o processamento Viajante em modo headless (sem GUI)
+        Usa os dados e parâmetros preparados por prepare_viajante_data()
+        
+        Args:
+            cod_sap: Código SAP do fornecedor
+            
+        Returns:
+            Dict com resultados do Viajante (Volume_por_rota.xlsx)
+        """
+        try:
+            # Get stored parameters and demanda DataFrame
+            params = self.sap_lookup.get_viajante_parameters()
+            
+            demanda_df = params.get('demanda_data')
+            cidade_destino = params.get('cidade_destino')
+            veiculo = params.get('veiculo')
+            
+            # Validate parameters
+            if demanda_df is None or demanda_df.empty:
+                return {
+                    "status": "error",
+                    "message": "Nenhum dado de demanda disponível. Execute prepare_viajante_data primeiro."
+                }
+            
+            if not cidade_destino:
+                return {
+                    "status": "error",
+                    "message": "Cidade destino não informada."
+                }
+            
+            if not veiculo:
+                return {
+                    "status": "error",
+                    "message": "Veículo não informado."
+                }
+            
+            # Import Viajante headless function
+            import sys
+            from pathlib import Path
+            
+            # Get Viajante folder path
+            current_path = Path(__file__).parent
+            viajante_path = current_path / "Viajante"
+            
+            if not viajante_path.exists():
+                return {
+                    "status": "error",
+                    "message": f"Pasta Viajante não encontrada: {viajante_path}"
+                }
+            
+            # Add to path if not already there
+            viajante_str = str(viajante_path)
+            if viajante_str not in sys.path:
+                sys.path.insert(0, viajante_str)
+            
+            # Change to Viajante directory (needed for relative file paths in DB.py)
+            original_cwd = os.getcwd()
+            os.chdir(viajante_path)
+            
+            try:
+                # Import and run headless function
+                from DB import run_viajante_headless  # type: ignore
+                
+                results = run_viajante_headless(
+                    demanda_df=demanda_df,
+                    cod_sap=cod_sap,
+                    cod_destino=cidade_destino,
+                    veiculo=veiculo,
+                    caminho_BD='BD'
+                )
+                
+                # Store Viajante results for trip calculation
+                if results.get('status') == 'success':
+                    self.viajante_results = results
+                
+                # Clean NaN values for JSON
+                return clean_nan_values(results)
+                
+            finally:
+                # Restore original working directory
+                os.chdir(original_cwd)
+                
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Error in run_viajante:\n{error_details}")
+            return {
+                "status": "error",
+                "message": f"Erro ao executar Viajante: {str(e)}"
+            }
+    
+    def _calculate_weekly_trips(self, qme_results, viajante_results):
+        """
+        Calcula quantidade de viagens semanais usando volumes TO BE e capacidade do veículo
+        
+        Formula: Qtde de Viagens Semanal = Volume m³ TO BE / CAP. ÚTIL (m³)
+        
+        Args:
+            qme_results: Resultados do QME com monthly_m3_tobe
+            viajante_results: Resultados do Viajante com CAP. ÚTIL (m³) por mês
+            
+        Returns:
+            Dict com quantidade de viagens por mês
+        """
+        try:
+            # Extract monthly TO BE volumes from QME
+            summary = qme_results.get('summary', {})
+            monthly_m3_tobe = summary.get('monthly_m3_tobe', {})
+            
+            if not monthly_m3_tobe:
+                print("Warning: No monthly TO BE data available for trip calculation")
+                return None
+            
+            # Extract CAP. ÚTIL from Viajante results
+            viajante_data = viajante_results.get('results', [])
+            
+            if not viajante_data:
+                print("Warning: No Viajante results available for trip calculation")
+                return None
+            
+            # Create a mapping of month to CAP. ÚTIL (m³)
+            # Viajante returns data per route/month with English abbreviations
+            month_capacity = {}
+            
+            # Map English month abbreviations (from Viajante) to Portuguese (from QME)
+            english_to_portuguese = {
+                'Jan': 'Jan',
+                'Feb': 'Fev',
+                'Mar': 'Mar',
+                'Apr': 'Abr',
+                'May': 'Mai',
+                'Jun': 'Jun',
+                'Jul': 'Jul',
+                'Aug': 'Ago',
+                'Sep': 'Set',
+                'Oct': 'Out',
+                'Nov': 'Nov',
+                'Dec': 'Dez'
+            }
+            
+            for row in viajante_data:
+                mes_english = row.get('Mês', '')  # English abbreviation from Viajante
+                mes_portuguese = english_to_portuguese.get(mes_english, mes_english)
+                cap_util = row.get('CAP. ÚTIL (m³)', 0)
+                
+                # Store the first capacity found for each month (should be consistent)
+                if mes_portuguese and mes_portuguese not in month_capacity and cap_util:
+                    month_capacity[mes_portuguese] = cap_util
+            
+            # Calculate trips for each month
+            monthly_trips_tobe = {}
+            months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+            
+            for month in months:
+                volume_tobe = monthly_m3_tobe.get(month, 0)
+                capacity = month_capacity.get(month, 0)
+                
+                if capacity > 0 and volume_tobe > 0:
+                    trips = round(volume_tobe / capacity, 0)
+                    monthly_trips_tobe[month] = int(trips)
+                else:
+                    monthly_trips_tobe[month] = 0
+            
+            print(f"\n{'='*60}")
+            print("WEEKLY TRIPS CALCULATION")
+            print(f"{'='*60}")
+            for month in months:
+                volume = monthly_m3_tobe.get(month, 0)
+                capacity = month_capacity.get(month, 0)
+                trips = monthly_trips_tobe.get(month, 0)
+                print(f"  {month}: {volume:.2f} m³ / {capacity:.2f} m³ = {trips} viagens")
+            print(f"{'='*60}\n")
+            
+            return {
+                'monthly_trips_tobe': monthly_trips_tobe,
+                'month_capacity': month_capacity
+            }
+            
+        except Exception as e:
+            print(f"Error calculating weekly trips: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def calculate_qme(self, data):
         """Calcula QME usando o módulo QMECalculator"""
@@ -102,6 +310,12 @@ class Api:
         
         # Passa tanto os dados do formulário quanto os dados PFEP, NPRC e MDR completos para o calculador
         result = self.qme_calculator.calculate(data, pfep_data, nprc_data, mdr_data)
+        
+        # Calculate weekly trips if Viajante results are available
+        if result.get('status') == 'success' and self.viajante_results:
+            trip_data = self._calculate_weekly_trips(result, self.viajante_results)
+            if trip_data:
+                result['weekly_trips'] = trip_data
         
         # Clean NaN values before returning (NaN is not valid JSON)
         return clean_nan_values(result)
@@ -133,6 +347,10 @@ class Api:
             monthly_m3_asis = summary.get('monthly_m3_asis', {})
             monthly_m3_tobe = summary.get('monthly_m3_tobe', {})
             
+            # Get weekly trips data if available
+            weekly_trips = results.get('weekly_trips', {})
+            monthly_trips_tobe = weekly_trips.get('monthly_trips_tobe', {})
+            
             # Create breakdown table data
             breakdown_data = []
             
@@ -145,13 +363,20 @@ class Api:
             vol_row['Total TO BE'] = sum(monthly_m3_tobe.values())
             breakdown_data.append(vol_row)
             
-            # Qtde de viagens row (placeholder)
+            # Qtde de viagens row - now with calculated values
             viagens_row = {'Métrica': f'Qtde de Viagens Semanal'}
             for month in months:
-                viagens_row[f'{month} AS IS'] = '-'
-                viagens_row[f'{month} TO BE'] = '-'
+                viagens_row[f'{month} AS IS'] = '-'  # AS IS will be calculated later
+                # Use calculated trips if available, otherwise placeholder
+                trips = monthly_trips_tobe.get(month, 0) if monthly_trips_tobe else 0
+                viagens_row[f'{month} TO BE'] = trips if trips > 0 else '-'
             viagens_row['Total AS IS'] = '-'
-            viagens_row['Total TO BE'] = '-'
+            # Calculate total trips (sum of all months)
+            if monthly_trips_tobe:
+                total_trips = sum(v for v in monthly_trips_tobe.values() if isinstance(v, (int, float)))
+                viagens_row['Total TO BE'] = int(total_trips) if total_trips > 0 else '-'
+            else:
+                viagens_row['Total TO BE'] = '-'
             breakdown_data.append(viagens_row)
             
             # Custo de veículo semanal row (placeholder)
