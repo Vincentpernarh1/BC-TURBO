@@ -107,6 +107,206 @@ class Api:
         return clean_nan_values(result)
     
     def export_results(self, filename=None):
-        """Exporta os resultados para Excel"""
+        """Exporta a tabela de breakdown detalhado para Excel"""
         results = self.qme_calculator.get_last_results()
-        return self.export_manager.export_results(results, filename)
+        
+        if not results or 'summary' not in results:
+            return {
+                "status": "error",
+                "message": "Nenhum resultado disponível para exportar!"
+            }
+        
+        if not self.result_folder:
+            return {
+                "status": "error",
+                "message": "Selecione a pasta de resultados primeiro!"
+            }
+        
+        try:
+            summary = results['summary']
+            veiculo = results.get('veiculo', 'VEÍCULO')
+            
+            # Extract monthly data
+            months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+            
+            monthly_m3_asis = summary.get('monthly_m3_asis', {})
+            monthly_m3_tobe = summary.get('monthly_m3_tobe', {})
+            
+            # Create breakdown table data
+            breakdown_data = []
+            
+            # Volume m³ row
+            vol_row = {'Métrica': 'Volume m³'}
+            for month in months:
+                vol_row[f'{month} AS IS'] = float(monthly_m3_asis.get(month, 0))
+                vol_row[f'{month} TO BE'] = float(monthly_m3_tobe.get(month, 0))
+            vol_row['Total AS IS'] = sum(monthly_m3_asis.values())
+            vol_row['Total TO BE'] = sum(monthly_m3_tobe.values())
+            breakdown_data.append(vol_row)
+            
+            # Qtde de viagens row (placeholder)
+            viagens_row = {'Métrica': f'Qtde de Viagens Semanal'}
+            for month in months:
+                viagens_row[f'{month} AS IS'] = '-'
+                viagens_row[f'{month} TO BE'] = '-'
+            viagens_row['Total AS IS'] = '-'
+            viagens_row['Total TO BE'] = '-'
+            breakdown_data.append(viagens_row)
+            
+            # Custo de veículo semanal row (placeholder)
+            custo_row = {'Métrica': f'Custo de {veiculo} Semanal'}
+            for month in months:
+                custo_row[f'{month} AS IS'] = '-'
+                custo_row[f'{month} TO BE'] = '-'
+            custo_row['Total AS IS'] = '-'
+            custo_row['Total TO BE'] = '-'
+            breakdown_data.append(custo_row)
+            
+            # Custo total row (placeholder)
+            custo_total_row = {'Métrica': f'Custo total de {veiculo} Semanal'}
+            for month in months:
+                custo_total_row[f'{month} AS IS'] = '-'
+                custo_total_row[f'{month} TO BE'] = '-'
+            custo_total_row['Total AS IS'] = '-'
+            custo_total_row['Total TO BE'] = '-'
+            breakdown_data.append(custo_total_row)
+            
+            # Create DataFrame
+            df = pd.DataFrame(breakdown_data)
+            
+            # Generate filename
+            if not filename:
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"BC_Turbo_Breakdown_{timestamp}.xlsx"
+            
+            filepath = os.path.join(self.result_folder, filename)
+            
+            # Write to Excel with formatting
+            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Breakdown Detalhado')
+                
+                # Auto-adjust column widths
+                worksheet = writer.sheets['Breakdown Detalhado']
+                for idx, col in enumerate(df.columns):
+                    max_length = max(
+                        df[col].astype(str).apply(len).max(),
+                        len(str(col))
+                    )
+                    worksheet.column_dimensions[chr(65 + idx)].width = min(max_length + 2, 30)
+            
+            return {
+                "status": "success",
+                "message": f"Breakdown exportado: {filename}",
+                "filepath": filepath
+            }
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Export breakdown error details:\n{error_details}")
+            return {
+                "status": "error",
+                "message": f"Erro ao exportar: {str(e)}"
+            }
+    
+    def export_pn_table(self, filename=None):
+        """Exporta a tabela de PNs detalhada para Excel"""
+        results = self.qme_calculator.get_last_results()
+        
+        if not results or 'results' not in results:
+            return {
+                "status": "error",  
+                "message": "Nenhum resultado disponível para exportar!"
+            }
+        
+        if not self.result_folder:
+            return {
+                "status": "error",
+                "message": "Selecione a pasta de resultados primeiro!"
+            }
+        
+        try:
+            # Extract the detailed PN data
+            pn_data = results['results']
+            
+            # Convert to DataFrame directly from the results list
+            # This avoids the "mixing dicts with non-Series" error
+            df_data = []
+            
+            for idx, row in enumerate(pn_data, start=1):
+                # Extract monthly volumes safely
+                monthly_vols = row.get('monthly_volumes', {})
+                
+                # Convert all values to basic Python types to avoid pandas issues
+                row_data = {
+                    'Linha': int(idx),
+                    'PN': str(row.get('pn', '')),
+                    'Jan': float(monthly_vols.get('Jan', 0)) if monthly_vols.get('Jan') else 0,
+                    'Fev': float(monthly_vols.get('Fev', 0)) if monthly_vols.get('Fev') else 0,
+                    'Mar': float(monthly_vols.get('Mar', 0)) if monthly_vols.get('Mar') else 0,
+                    'Abr': float(monthly_vols.get('Abr', 0)) if monthly_vols.get('Abr') else 0,
+                    'Mai': float(monthly_vols.get('Mai', 0)) if monthly_vols.get('Mai') else 0,
+                    'Jun': float(monthly_vols.get('Jun', 0)) if monthly_vols.get('Jun') else 0,
+                    'Jul': float(monthly_vols.get('Jul', 0)) if monthly_vols.get('Jul') else 0,
+                    'Ago': float(monthly_vols.get('Ago', 0)) if monthly_vols.get('Ago') else 0,
+                    'Set': float(monthly_vols.get('Set', 0)) if monthly_vols.get('Set') else 0,
+                    'Out': float(monthly_vols.get('Out', 0)) if monthly_vols.get('Out') else 0,
+                    'Nov': float(monthly_vols.get('Nov', 0)) if monthly_vols.get('Nov') else 0,
+                    'Dez': float(monthly_vols.get('Dez', 0)) if monthly_vols.get('Dez') else 0,
+                    'QME AS IS': float(row.get('qme_asis', 0)) if row.get('qme_asis') else 0,
+                    'MDR AS IS': str(row.get('mdr_asis', '')),
+                    'Vol AS IS (m³)': float(row.get('vol_asis_m3', 0)) if row.get('vol_asis_m3') else 0,
+                    'Peso AS IS (kg)': float(row.get('peso_asis_kg', 0)) if row.get('peso_asis_kg') else 0,
+                    'QME TO BE': float(row.get('qme_tobe', 0)) if row.get('qme_tobe') else 0,
+                    'MDR TO BE': str(row.get('mdr_tobe', '')),
+                    'Vol TO BE (m³)': float(row.get('vol_tobe_m3', 0)) if row.get('vol_tobe_m3') else 0,
+                    'Peso TO BE (kg)': float(row.get('peso_tobe_kg', 0)) if row.get('peso_tobe_kg') else 0,
+                    'Status': str(row.get('status', ''))
+                }
+                df_data.append(row_data)
+            
+            # Create DataFrame with explicit column order
+            columns = ['Linha', 'PN', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+                      'QME AS IS', 'MDR AS IS', 'Vol AS IS (m³)', 'Peso AS IS (kg)',
+                      'QME TO BE', 'MDR TO BE', 'Vol TO BE (m³)', 'Peso TO BE (kg)', 'Status']
+            
+            df = pd.DataFrame(df_data, columns=columns)
+            
+            # Generate filename if not provided
+            if not filename:
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"BC_Turbo_PN_Table_{timestamp}.xlsx"
+            
+            filepath = os.path.join(self.result_folder, filename)
+            
+            # Write to Excel with formatting
+            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Detalhes PN')
+                
+                # Auto-adjust column widths
+                worksheet = writer.sheets['Detalhes PN']
+                for idx, col in enumerate(df.columns):
+                    max_length = max(
+                        df[col].astype(str).apply(len).max(),
+                        len(str(col))
+                    )
+                    worksheet.column_dimensions[chr(65 + idx)].width = min(max_length + 2, 50)
+            
+            return {
+                "status": "success",
+                "message": f"Tabela de PNs exportada: {filename}",
+                "filepath": filepath
+            }
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Export error details:\n{error_details}")
+            return {
+                "status": "error",
+                "message": f"Erro ao exportar: {str(e)}"
+            }

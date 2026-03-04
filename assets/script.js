@@ -550,23 +550,36 @@ function displayResults(response) {
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
                    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     
+    // Month mapping from display names to backend keys
+    const monthKeys = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                       'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    
     // Populate Combined Breakdown Table (AS IS vs TO BE side by side)
     const breakdownCombinedBody = document.getElementById('breakdown-combined-body');
     if (breakdownCombinedBody) {
         breakdownCombinedBody.innerHTML = '';
         
-        // Volume m³ row
+        // Volume m³ row - NOW POPULATED WITH ACTUAL DATA
         const volumeRow = document.createElement('tr');
         volumeRow.innerHTML = '<td class="td-label-bold">Volume m³</td>';
-        months.forEach(month => {
-            volumeRow.innerHTML += '<td class="td-breakdown-as">-</td><td class="td-breakdown-to">-</td>';
+        let totalM3Asis = 0;
+        let totalM3Tobe = 0;
+        monthKeys.forEach(monthKey => {
+            const m3Asis = response.summary.monthly_m3_asis?.[monthKey] || 0;
+            const m3Tobe = response.summary.monthly_m3_tobe?.[monthKey] || 0;
+            totalM3Asis += m3Asis;
+            totalM3Tobe += m3Tobe;
+            // FIXED: Swapped order - TO BE first, AS IS second to match expected behavior
+            volumeRow.innerHTML += `<td class="td-breakdown-as">${m3Tobe.toFixed(2)}</td><td class="td-breakdown-to">${m3Asis.toFixed(2)}</td>`;
         });
-        volumeRow.innerHTML += '<td class="td-breakdown-total" colspan="2">-</td>';
+        volumeRow.innerHTML += `<td class="td-breakdown-as">${totalM3Tobe.toFixed(2)}</td><td class="td-breakdown-to">${totalM3Asis.toFixed(2)}</td>`;
         breakdownCombinedBody.appendChild(volumeRow);
         
         // Qtde de viagens row
         const viagensRow = document.createElement('tr');
-        viagensRow.innerHTML = '<td class="td-label">Qtde de viagens (VEÍCULO) (Semanal)</td>';
+        const veiculoName = response.veiculo || 'VEÍCULO';
+        viagensRow.innerHTML = `<td class="td-label">Qtde de Viagens Semanal</td>`;
+        //  viagensRow.innerHTML = `<td class="td-label">Qtde de ${veiculoName} Sem.</td>`;
         months.forEach(month => {
             viagensRow.innerHTML += '<td class="td-breakdown-as">-</td><td class="td-breakdown-to">-</td>';
         });
@@ -575,7 +588,7 @@ function displayResults(response) {
         
         // Custo semanal Truck row
         const custoSemanalRow = document.createElement('tr');
-        custoSemanalRow.innerHTML = '<td class="td-label">Custo semanal Truck (tarifa)</td>';
+        custoSemanalRow.innerHTML = `<td class="td-label">Custo de ${veiculoName} Semanal</td>`;
         months.forEach(month => {
             custoSemanalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
         });
@@ -584,7 +597,7 @@ function displayResults(response) {
         
         // Custo total caminhão row
         const custoTotalRow = document.createElement('tr');
-        custoTotalRow.innerHTML = '<td class="td-label">Custo total caminhão Week</td>';
+        custoTotalRow.innerHTML = `<td class="td-label">Custo total de ${veiculoName} Semanal </td>`;
         months.forEach(month => {
             custoTotalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
         });
@@ -694,7 +707,7 @@ function displayResults(response) {
             <td class="td-center">${row.mdr_tobe || '-'}</td>
             <td class="td-center">${row.vol_tobe_m3 ? row.vol_tobe_m3.toFixed(4) : '-'}</td>
             <td class="td-center">${row.peso_tobe_kg ? row.peso_tobe_kg.toFixed(2) : '-'}</td>
-            <td class="td-value">R$ ${row.savings.toLocaleString('pt-BR')}</td>
+            <!-- <td class="td-value">R$ ${row.savings.toLocaleString('pt-BR')}</td> -->
             <td class="td-center">
                 <span class="status-badge ${statusClass}">
                     ${row.status}
@@ -704,6 +717,40 @@ function displayResults(response) {
         
         tbody.appendChild(tr);
     });
+    
+    // Add TOTALS row at the bottom of the detailed PN table
+    const totalsRow = document.createElement('tr');
+    totalsRow.className = 'table-row-totals';
+    totalsRow.style.backgroundColor = '#f0f0f0';
+    totalsRow.style.fontWeight = 'bold';
+    totalsRow.style.borderTop = '3px solid #333';
+    
+    // Calculate totals for each column
+    totalsRow.innerHTML = `
+        <td class="td-label" colspan="2" style="text-align: right; padding-right: 10px;"><strong>TOTAIS:</strong></td>
+    `;
+    
+    // Add monthly volume totals
+    monthKeys.forEach(monthKey => {
+        const totalVol = response.summary.monthly_qme_asis?.[monthKey] || 0;
+        totalsRow.innerHTML += `<td class="td-center"><strong>${totalVol.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</strong></td>`;
+    });
+    
+    // Add empty cells for QME, MDR, Vol, Peso columns (or show totals if needed)
+    totalsRow.innerHTML += `
+        <td class="td-center">-</td>
+        <td class="td-center">-</td>
+        <td class="td-center"><strong>${(response.summary.monthly_m3_asis ? Object.values(response.summary.monthly_m3_asis).reduce((a,b) => a+b, 0) : 0).toFixed(2)}</strong></td>
+        <td class="td-center">-</td>
+        <td class="td-center">-</td>
+        <td class="td-center">-</td>
+        <td class="td-center"><strong>${(response.summary.monthly_m3_tobe ? Object.values(response.summary.monthly_m3_tobe).reduce((a,b) => a+b, 0) : 0).toFixed(2)}</strong></td>
+        <td class="td-center">-</td>
+       <!-- <td class="td-value"><strong>R$ ${response.summary.total_savings.toLocaleString('pt-BR')}</strong></td> -->
+        <td class="td-center">-</td>
+    `;
+    
+    tbody.appendChild(totalsRow);
     
     // Log matching info to console
     if (response.matching) {
@@ -728,12 +775,24 @@ function toggleDetailedView() {
 }
 
 function exportResults() {
+    console.log('Exporting breakdown results to Excel...');
+    
+    if (!window.pywebview || !window.pywebview.api) {
+        alert('API ainda não está pronta. Por favor, aguarde um momento.');
+        return;
+    }
+    
     window.pywebview.api.export_results().then(response => {
+        console.log('Export response:', response);
+        
         if (response.status === 'success') {
-            alert('✅ ' + response.message);
-        } else {
-            alert('❌ ' + response.message);
+            showToast('✅ ' + response.message, 'success');
+        } else if (response.status === 'error') {
+            showToast('❌ ' + response.message, 'error');
         }
+    }).catch(error => {
+        console.error('Error exporting breakdown:', error);
+        showToast('❌ Erro ao exportar: ' + error, 'error');
     });
 }
 
@@ -817,3 +876,88 @@ function initializeInputState() {
         showDBWarning();
     }
 }
+// PN/MDR Filter Functionality
+function filterPNTable() {
+    const filterInput = document.getElementById('pn-filter');
+    const filterValue = filterInput.value.toLowerCase().trim();
+    const table = document.getElementById('dashboard-results-table');
+    const tbody = table.querySelector('tbody');
+    const rows = tbody.querySelectorAll('tr');
+    
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        // Skip totals row if it exists
+        if (row.classList.contains('totals-row')) {
+            return;
+        }
+        
+        // Get PN (2nd cell) and MDR AS IS (16th cell) and MDR TO BE (20th cell)
+        const cells = row.querySelectorAll('td');
+        if (cells.length < 2) return;
+        
+        const pn = cells[1].textContent.toLowerCase();
+        const mdrAsIs = cells.length > 15 ? cells[15].textContent.toLowerCase() : '';
+        const mdrToBe = cells.length > 19 ? cells[19].textContent.toLowerCase() : '';
+        
+        // Show row if filter is empty or matches PN or MDR
+        if (!filterValue || 
+            pn.includes(filterValue) || 
+            mdrAsIs.includes(filterValue) || 
+            mdrToBe.includes(filterValue)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Update row numbers for visible rows
+    let rowNum = 1;
+    rows.forEach(row => {
+        if (row.style.display !== 'none' && !row.classList.contains('totals-row')) {
+            const firstCell = row.querySelector('td:first-child');
+            if (firstCell) {
+                firstCell.textContent = rowNum++;
+            }
+        }
+    });
+}
+
+function clearPNFilter() {
+    const filterInput = document.getElementById('pn-filter');
+    filterInput.value = '';
+    filterPNTable();
+}
+
+// Function to export PN table to Excel
+function exportPNTable() {
+    console.log('Exporting PN table to Excel...');
+    
+    if (!window.pywebview || !window.pywebview.api) {
+        alert('API ainda não está pronta. Por favor, aguarde um momento.');
+        return;
+    }
+    
+    window.pywebview.api.export_pn_table().then(result => {
+        console.log('Export response:', result);
+        
+        if (result.status === 'success') {
+            showToast('✅ ' + result.message, 'success');
+        } else if (result.status === 'error') {
+            showToast('❌ ' + result.message, 'error');
+        }
+    }).catch(error => {
+        console.error('Error exporting PN table:', error);
+        showToast('❌ Erro ao exportar: ' + error, 'error');
+    });
+}
+
+
+// Add event listener for real-time filtering
+document.addEventListener('DOMContentLoaded', () => {
+    const filterInput = document.getElementById('pn-filter');
+    if (filterInput) {
+        filterInput.addEventListener('input', filterPNTable);
+    }
+});

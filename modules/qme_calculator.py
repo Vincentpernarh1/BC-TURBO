@@ -155,21 +155,6 @@ class QMECalculator:
         
         for pn in sorted(matched_pns):  # Process all PNs that exist in both PFEP and NPRC
             
-            # Check if this PN has TO BE data in propose file
-            has_propose_data = pn in propose_lookup
-            qme_tobe = 0
-            mdr_tobe = ''
-            
-            if has_propose_data:
-                qme_tobe = propose_lookup[pn]['qme_tobe']
-                mdr_tobe = propose_lookup[pn]['mdr_tobe']
-                
-                # Convert to numeric if needed
-                try:
-                    qme_tobe = int(qme_tobe) if qme_tobe else 0
-                except:
-                    qme_tobe = 0
-            
             # Get PFEP data (AS IS source) - guaranteed to exist since pn is in matched_pns
             pfep_info = {}
             qme_asis = 0
@@ -181,13 +166,33 @@ class QMECalculator:
                     pfep_info = pn_match.iloc[0].to_dict()
                     # AS IS data from PFEP
                     qme_asis = pfep_info.get('QME (Pecas/Embalagem)', 0)
-                    mdr_asis = str(pfep_info.get('MDR', '')).strip()
+                    mdr_asis = str(pfep_info.get('COD Embalagem', '')).strip()  # MDR is called "COD Embalagem" in PFEP
                     
                     # Convert QME AS IS to numeric
                     try:
                         qme_asis = int(qme_asis) if qme_asis else 0
                     except:
                         qme_asis = 0
+            
+            # Check if this PN has TO BE data in propose file
+            has_propose_data = pn in propose_lookup
+            qme_tobe = 0
+            mdr_tobe = ''
+            
+            if has_propose_data:
+                # PN exists in propose file - use propose file TO BE values
+                qme_tobe = propose_lookup[pn]['qme_tobe']
+                mdr_tobe = propose_lookup[pn]['mdr_tobe']
+                
+                # Convert to numeric if needed
+                try:
+                    qme_tobe = int(qme_tobe) if qme_tobe else 0
+                except:
+                    qme_tobe = 0
+            else:
+                # PN NOT in propose file - TO BE = AS IS (no change)
+                qme_tobe = qme_asis
+                mdr_tobe = mdr_asis
             
             # Get NPRC data - guaranteed to exist since pn is in matched_pns
             # Use aggregated NPRC data (monthly volumes already summed for duplicate PNs)
@@ -220,43 +225,109 @@ class QMECalculator:
             peso_tobe_kg = 0  # Weight in kg TO BE
             
             if mdr_data is not None and 'MDR' in mdr_data.columns:
-                # Lookup AS IS volume using AS IS MDR
+                # Lookup AS IS volume using AS IS MDR (from PFEP COD Embalagem)
+                # Skip null/zero volumes and find first valid volume
                 if mdr_asis:
                     mdr_match_asis = mdr_data[mdr_data['MDR'].astype(str).str.strip() == mdr_asis]
                     if not mdr_match_asis.empty:
-                        vol_asis_m3 = mdr_match_asis.iloc[0].get('VOLUME', 0)
-                        peso_asis_kg = mdr_match_asis.iloc[0].get('MDR PESO', 0)
-                        try:
-                            vol_asis_m3 = float(vol_asis_m3) if vol_asis_m3 else 0
-                            peso_asis_kg = float(peso_asis_kg) if peso_asis_kg else 0
-                        except:
-                            vol_asis_m3 = 0
-                            peso_asis_kg = 0
+                        # Find first row with non-null, non-zero VOLUME
+                        valid_volume_rows = mdr_match_asis[
+                            mdr_match_asis['VOLUME'].notna() & 
+                            (mdr_match_asis['VOLUME'] != 0) & 
+                            (mdr_match_asis['VOLUME'] != '')
+                        ]
+                        
+                        if not valid_volume_rows.empty:
+                            vol_asis_m3 = valid_volume_rows.iloc[0].get('VOLUME', 0)
+                            peso_asis_kg = valid_volume_rows.iloc[0].get('MDR PESO', 0)
+                            try:
+                                vol_asis_m3 = float(vol_asis_m3) if vol_asis_m3 else 0
+                                peso_asis_kg = float(peso_asis_kg) if peso_asis_kg else 0
+                            except:
+                                vol_asis_m3 = 0
+                                peso_asis_kg = 0
+                        else:
+                            # All rows have null/zero volume
+                            if row_num <= 3:
+                                print(f"  WARNING: MDR AS IS '{mdr_asis}' found but all volume values are null/zero for PN {pn}")
+                    elif row_num <= 3:  # Log first 3 PNs if MDR not found
+                        print(f"  WARNING: MDR AS IS '{mdr_asis}' not found in MDR database for PN {pn}")
                 
-                # Lookup TO BE volume using TO BE MDR (if propose data exists)
+                # Lookup TO BE volume using TO BE MDR
+                # Note: If PN not in propose file, mdr_tobe = mdr_asis, so this will get same volume
+                # Skip null/zero volumes and find first valid volume
                 if mdr_tobe:
                     mdr_match_tobe = mdr_data[mdr_data['MDR'].astype(str).str.strip() == mdr_tobe]
                     if not mdr_match_tobe.empty:
-                        vol_tobe_m3 = mdr_match_tobe.iloc[0].get('VOLUME', 0)
-                        peso_tobe_kg = mdr_match_tobe.iloc[0].get('MDR PESO', 0)
-                        try:
-                            vol_tobe_m3 = float(vol_tobe_m3) if vol_tobe_m3 else 0
-                            peso_tobe_kg = float(peso_tobe_kg) if peso_tobe_kg else 0
-                        except:
-                            vol_tobe_m3 = 0
-                            peso_tobe_kg = 0
+                        # Find first row with non-null, non-zero VOLUME
+                        valid_volume_rows = mdr_match_tobe[
+                            mdr_match_tobe['VOLUME'].notna() & 
+                            (mdr_match_tobe['VOLUME'] != 0) & 
+                            (mdr_match_tobe['VOLUME'] != '')
+                        ]
+                        
+                        if not valid_volume_rows.empty:
+                            vol_tobe_m3 = valid_volume_rows.iloc[0].get('VOLUME', 0)
+                            peso_tobe_kg = valid_volume_rows.iloc[0].get('MDR PESO', 0)
+                            try:
+                                vol_tobe_m3 = float(vol_tobe_m3) if vol_tobe_m3 else 0
+                                peso_tobe_kg = float(peso_tobe_kg) if peso_tobe_kg else 0
+                            except:
+                                vol_tobe_m3 = 0
+                                peso_tobe_kg = 0
+                        else:
+                            # All rows have null/zero volume
+                            if row_num <= 3 and has_propose_data:
+                                print(f"  WARNING: MDR TO BE '{mdr_tobe}' found but all volume values are null/zero for PN {pn}")
+                    elif row_num <= 3 and has_propose_data:  # Only warn if PN has propose data
+                        print(f"  WARNING: MDR TO BE '{mdr_tobe}' not found in MDR database for PN {pn}")
+            
+            # Debug logging for first PN to verify data retrieval
+            if row_num == 1:
+                print(f"\n=== DEBUG: First PN Data Retrieval ===")
+                print(f"PN: {pn}")
+                print(f"Has propose data: {has_propose_data}")
+                print(f"QME AS IS: {qme_asis}, MDR AS IS: {mdr_asis}, Volume AS IS: {vol_asis_m3} m³")
+                print(f"QME TO BE: {qme_tobe}, MDR TO BE: {mdr_tobe}, Volume TO BE: {vol_tobe_m3} m³")
+                print(f"Sample monthly volume (Jan): {monthly_volumes.get('Jan', 0)}")
+                if not has_propose_data:
+                    print(f"⚠️  Note: PN not in propose file - TO BE uses AS IS values")
+                print(f"==========================================\n")
+            
+            # Calculate monthly M³ for AS IS and TO BE (per PN, per month)
+            # Formula: (Monthly_QTD / QME) × Volume_m³
+            # Note: If PN not in propose file, TO BE uses AS IS values (same calculation)
+            monthly_m3_asis = {}
+            monthly_m3_tobe = {}
+            
+            for month in ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                          'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']:
+                monthly_qty = monthly_volumes.get(month, 0)
+                
+                # AS IS M³ = (Monthly QTD / QME AS IS) × Volume AS IS
+                if qme_asis > 0 and vol_asis_m3 > 0:
+                    monthly_m3_asis[month] = (monthly_qty / qme_asis) * vol_asis_m3
+                else:
+                    monthly_m3_asis[month] = 0
+                
+                # TO BE M³ = (Monthly QTD / QME TO BE) × Volume TO BE
+                # If PN not in propose file: qme_tobe = qme_asis, vol_tobe_m3 = vol_asis_m3
+                if qme_tobe > 0 and vol_tobe_m3 > 0:
+                    monthly_m3_tobe[month] = (monthly_qty / qme_tobe) * vol_tobe_m3
+                else:
+                    monthly_m3_tobe[month] = 0
             
             # Calculate savings (to be implemented)
             savings = 0
             
             # Status: All PNs in results are matched (exist in both PFEP and NPRC)
-            # Highlight if this PN has propose data (TO BE)
-            status = "Matched - In Dataset"
+            # Highlight if this PN has propose data (TO BE different from AS IS)
+            status = "="
             if has_propose_data:
-                if qme_tobe > qme_asis:
-                    status = "Matched - TO BE Improvement"
+                if qme_tobe != qme_asis:
+                    status = "≠"
                 else:
-                    status = "Matched - TO BE No Change"
+                    status = "="
             
             results.append({
                 "row": row_num,
@@ -271,7 +342,9 @@ class QMECalculator:
                 "peso_tobe_kg": peso_tobe_kg,
                 "vol_asis": vol_asis_m3,  # Backward compat
                 "vol_tobe": vol_tobe_m3,  # Backward compat
-                "monthly_volumes": monthly_volumes,  # Monthly volumes from NPRC
+                "monthly_volumes": monthly_volumes,  # Monthly volumes from NPRC (QTD per month)
+                "monthly_m3_asis": monthly_m3_asis,  # Monthly M³ AS IS per PN
+                "monthly_m3_tobe": monthly_m3_tobe,  # Monthly M³ TO BE per PN
                 "savings": savings,
                 "status": status,
                 "has_pfep_match": True,  # All PNs in results are matched
@@ -290,11 +363,15 @@ class QMECalculator:
         
         # Initialize monthly aggregations
         monthly_volumes_total = {month: 0 for month in months}
+        monthly_m3_asis_total = {month: 0 for month in months}
+        monthly_m3_tobe_total = {month: 0 for month in months}
         
-        # Sum volumes from all PNs for each month
+        # Sum volumes and M³ from all PNs for each month
         for result in results:
             for month in months:
                 monthly_volumes_total[month] += result.get('monthly_volumes', {}).get(month, 0)
+                monthly_m3_asis_total[month] += result.get('monthly_m3_asis', {}).get(month, 0)
+                monthly_m3_tobe_total[month] += result.get('monthly_m3_tobe', {}).get(month, 0)
         
         # Create monthly dictionaries with actual NPRC volumes
         monthly_qme_asis = {}
@@ -321,6 +398,17 @@ class QMECalculator:
             print(f"  {month}: {monthly_volumes_total[month]:.0f}")
         print(f"  Total Annual: {total_qme_asis:.0f}\n")
         
+        print(f"\nMonthly M³ Totals:")
+        print(f"  AS IS:")
+        for month in months:
+            print(f"    {month}: {monthly_m3_asis_total[month]:.2f} m³")
+        print(f"    Total Annual AS IS: {sum(monthly_m3_asis_total.values()):.2f} m³")
+        print(f"  TO BE:")
+        for month in months:
+            print(f"    {month}: {monthly_m3_tobe_total[month]:.2f} m³")
+        print(f"    Total Annual TO BE: {sum(monthly_m3_tobe_total.values()):.2f} m³")
+        print(f"    Saving M³ (12 months): {sum(monthly_m3_asis_total.values()) - sum(monthly_m3_tobe_total.values()):.2f} m³\n")
+        
         # Count PNs with propose data
         pns_with_propose = sum(1 for r in results if r.get('has_propose_data', False))
         pns_without_propose = len(results) - pns_with_propose
@@ -336,6 +424,7 @@ class QMECalculator:
         response = {
             "status": "success",
             "message": f"Dataset created with {len(results)} PNs (PFEP+NPRC intersection).",
+            "veiculo": data.get('veiculo', 'VEÍCULO'),  # Vehicle name from QME form
             "results": results,
             "summary": {
                 "total_rows": len(results),  # Total PNs in dataset (PFEP+NPRC intersection)
@@ -346,6 +435,8 @@ class QMECalculator:
                 "pns_without_propose": pns_without_propose,  # PNs without TO BE data
                 "monthly_qme_asis": monthly_qme_asis,
                 "monthly_qme_tobe": monthly_qme_tobe,
+                "monthly_m3_asis": monthly_m3_asis_total,  # Monthly M³ AS IS totals
+                "monthly_m3_tobe": monthly_m3_tobe_total,  # Monthly M³ TO BE totals
                 "total_qme_asis": total_qme_asis,
                 "total_qme_tobe": total_qme_tobe,
                 "total_asis_anual": total_asis_anual,

@@ -419,7 +419,28 @@
                         
                         <!-- Detailed Results Table (Initially Hidden) -->
                         <div id="detailed-results-section" class="hidden-section">
-                            <h4 class="section-header">📊 Detalhes por PN</h4>
+                            <div class="section-header-container">
+                                <h4 class="section-header">📊 Detalhes por PN - Análise Mensal e Comparativa</h4>
+                                <button class="btn-export-pn" onclick="exportPNTable()" title="Exportar tabela de PNs para Excel">
+                                    📥 Exportar PN Table
+                                </button>
+                            </div>
+                            
+                            <!-- Column Guide -->
+                            <div class="table-guide">
+                                <div class="guide-item">
+                                    <span class="guide-badge guide-monthly">Volumes Mensais</span>
+                                    <span class="guide-text">Jan - Dez: Volumes mensais do NPRC</span>
+                                </div>
+                                <div class="guide-item">
+                                    <span class="guide-badge guide-asis">AS IS</span>
+                                    <span class="guide-text">QME, MDR, Volume, Peso (dados PFEP)</span>
+                                </div>
+                                <div class="guide-item">
+                                    <span class="guide-badge guide-tobe">TO BE</span>
+                                    <span class="guide-text">QME, MDR, Volume, Peso (proposta)</span>
+                                </div>
+                            </div>
                             
                             <!-- Legend Box -->
                             <div class="legend-box">
@@ -437,6 +458,13 @@
                                 <div class="legend-note">
                                     💡 <em>AS IS data (QME, MDR) comes from PFEP database. TO BE data comes from propose file.</em>
                                 </div>
+                            </div>
+                            
+                            <!-- Filter Box -->
+                            <div class="filter-box">
+                                <label for="pn-filter">🔍 Filtrar por PN ou MDR:</label>
+                                <input type="text" id="pn-filter" placeholder="Digite PN ou MDR para filtrar..." />
+                                <button class="btn-clear-filter" onclick="clearPNFilter()">✕ Limpar</button>
                             </div>
                             
                             <div class="table-wrapper">
@@ -465,7 +493,7 @@
                                             <th class="th-center">MDR TO BE</th>
                                             <th class="th-center">Vol TO BE (m³)</th>
                                             <th class="th-center">Peso TO BE (kg)</th>
-                                            <th class="th-center">Economia</th>
+                                            <!-- <th class="th-center">Economia</th> -->
                                             <th class="th-center">Status</th>
                                         </tr>
                                     </thead>
@@ -477,7 +505,7 @@
                         </div>
                         
                         <button class="submit-btn submit-btn-spacing" onclick="exportResults()">
-                            📊 Exportar Resultados
+                            📊 Exportar Breakdown Detalhado
                         </button>
                         <div class="clearfix"></div>
                     </div>
