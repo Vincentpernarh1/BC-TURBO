@@ -29,7 +29,7 @@ class FileManager:
                 file_types=file_types
             )
             
-            print(f"File dialog result: {result}")
+            # print(f"File dialog result: {result}")
             
             if result and len(result) > 0:
                 file_path = result[0]

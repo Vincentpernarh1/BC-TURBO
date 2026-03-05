@@ -294,8 +294,9 @@ class QMECalculator:
                     print(f"⚠️  Note: PN not in propose file - TO BE uses AS IS values")
                 print(f"==========================================\n")
             
-            # Calculate monthly M³ for AS IS and TO BE (per PN, per month)
-            # Formula: (Monthly_QTD / QME) × Volume_m³
+            # Calculate weekly M³ for AS IS and TO BE (per PN, per month)
+            # Formula: ((Monthly_QTD / 4.4) / QME) × Volume_m³
+            # Convert monthly quantity to weekly by dividing by 4.4 before calculating volume
             # Note: If PN not in propose file, TO BE uses AS IS values (same calculation)
             monthly_m3_asis = {}
             monthly_m3_tobe = {}
@@ -303,17 +304,18 @@ class QMECalculator:
             for month in ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
                           'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']:
                 monthly_qty = monthly_volumes.get(month, 0)
+                weekly_qty = monthly_qty / 4.4  # Convert monthly to weekly
                 
-                # AS IS M³ = (Monthly QTD / QME AS IS) × Volume AS IS
+                # AS IS M³ = (Weekly QTD / QME AS IS) × Volume AS IS
                 if qme_asis > 0 and vol_asis_m3 > 0:
-                    monthly_m3_asis[month] = (monthly_qty / qme_asis) * vol_asis_m3
+                    monthly_m3_asis[month] = (weekly_qty / qme_asis) * vol_asis_m3
                 else:
                     monthly_m3_asis[month] = 0
                 
-                # TO BE M³ = (Monthly QTD / QME TO BE) × Volume TO BE
+                # TO BE M³ = (Weekly QTD / QME TO BE) × Volume TO BE
                 # If PN not in propose file: qme_tobe = qme_asis, vol_tobe_m3 = vol_asis_m3
                 if qme_tobe > 0 and vol_tobe_m3 > 0:
-                    monthly_m3_tobe[month] = (monthly_qty / qme_tobe) * vol_tobe_m3
+                    monthly_m3_tobe[month] = (weekly_qty / qme_tobe) * vol_tobe_m3
                 else:
                     monthly_m3_tobe[month] = 0
             

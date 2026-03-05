@@ -487,7 +487,7 @@ def completar_informacoes(tree, veiculo, tree_resumo, canvas_caminhoes, caminhao
         def obter_veiculo_anterior(cod_veic):
             if cod_veic in [4, 5, 6, 7, 8, 9, 14,19]:
                 return 3
-            elif cod_veic in [2, 3, 12, 13, 15, 16, 17, 18]:
+            elif cod_veic in [2, 3, 12, 13, 15, 16, 17, 18,20]:
                 return 1
             elif cod_veic == 1:
                 return 10
@@ -1027,8 +1027,6 @@ def run_viajante_headless(demanda_df, cod_sap, cod_destino, veiculo, caminho_BD=
                         except Exception:
                             continue
                     
-                    print(f"✓ Loaded {len(veiculo_mapping)} vehicles from {os.path.basename(vf)}")
-                    print(f"  Available vehicles: {', '.join(sorted(veiculo_mapping.keys()))}")
                     break
                 except Exception as e:
                     print(f"Warning: Could not read {vf}: {e}")
@@ -1143,9 +1141,9 @@ def run_viajante_headless(demanda_df, cod_sap, cod_destino, veiculo, caminho_BD=
         print(f"\n{'='*60}")
         print(f"VIAJANTE PROCESSING COMPLETE")
         print(f"{'='*60}")
-        print(f"  Results: {len(results)} rows")
-        print(f"  Columns: {available_cols}")
-        print(f"{'='*60}\n")
+        # print(f"  Results: {len(results)} rows")
+        # print(f"  Columns: {available_cols}")
+        # print(f"{'='*60}\n")
         
         return {
             "status": "success",

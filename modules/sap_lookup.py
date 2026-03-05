@@ -183,7 +183,7 @@ class SAPLookup:
         # Define colunas específicas para TDC (ajuste conforme necessário)
         tdc_columns = [
             "Codigo IMS - Origem","Codigo IMS Destino", "Transportadora", "Pedagio", 
-            "Cod. Rota", "Fluxo Viagem", "KM","Veiculo","Trip","CrossDock"
+            "Cod. Rota", "Fluxo Viagem", "KM","Veiculo","Trip","CrossDock","Ativacao","Mês"
         ]
         
         
@@ -814,7 +814,7 @@ class SAPLookup:
                     "message": "Nenhuma coluna de mês identificada no NPRC."
                 }, None
             
-            print(f"Identified {len(month_columns)} month columns: {month_columns[:12]}")
+            # print(f"Identified {len(month_columns)} month columns: {month_columns[:12]}")
             
             # Melt DataFrame from wide to long format
             # PN stays as identifier, month columns become (Mês, QTDE) pairs
