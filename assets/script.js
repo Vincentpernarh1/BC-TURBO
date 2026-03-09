@@ -247,7 +247,7 @@ async function prepareViajanteData(codSap, cidadeDestino) {
      * O processamento Viajante acontece quando clicar "Executar Simulação"
      */
     if (!codSap || codSap.trim() === '') {
-        return; // Não faz nada se o código SAP estiver vazio
+        return { status: 'error', message: 'Código SAP vazio' };
     }
     
     try {
@@ -268,8 +268,11 @@ async function prepareViajanteData(codSap, cidadeDestino) {
             console.error('❌ Error preparing Viajante data:', prepareResponse.message);
         }
         
+        return prepareResponse;
+        
     } catch (error) {
         console.error('❌ Error in prepareViajanteData:', error);
+        return { status: 'error', message: error.message };
     }
 }
 
@@ -466,6 +469,7 @@ async function runSimulation() {
         fluxo: document.getElementById('fluxo').value,
         transportadora: document.getElementById('transportadora').value,
         veiculo: document.getElementById('veiculo').value,
+        trip: document.getElementById('trip').value,
         qme_tobe: document.getElementById('qme_tobe').value
     };
 
@@ -482,9 +486,45 @@ async function runSimulation() {
 
     try {
         // Show loading indicator
+        showToast('⏳ Preparando dados de demanda...', 'info');
+        
+        // Step 1: Prepare Viajante demand file FIRST
+        console.log('\n📊 Step 1: Preparing Viajante demand file...');
+        const prepareResponse = await prepareViajanteData(data.cod_sap, data.destino);
+        
+        if (prepareResponse && prepareResponse.status === 'error') {
+            showToast('❌ Erro ao preparar demanda: ' + prepareResponse.message, 'error');
+            return;
+        }
+        
+        // Step 2: Run Viajante processing
+        console.log('\n🚚 Step 2: Running Viajante processing...');
+        showToast('⏳ Processando Viajante...', 'info');
+        
+        const viajanteResponse = await window.pywebview.api.run_viajante(data.cod_sap);
+        
+        if (viajanteResponse.status !== 'success') {
+            console.error('❌ Error running Viajante:', viajanteResponse.message);
+            showToast('❌ Erro Viajante: ' + viajanteResponse.message, 'error');
+            return;
+        }
+        
+        console.log('✅ Viajante processing completed successfully');
+        console.log(`   Results: ${viajanteResponse.total_rows} rows`);
+        showToast('✅ Viajante processado com sucesso!', 'success');
+        
+        // Step 3: Calculate QME (now Viajante results are available for trip calculation)
+        console.log('\n📊 Step 3: Calculating QME with Viajante results...');
+        console.log('Data being sent to calculate_qme:', {
+            cod_sap: data.cod_sap,
+            origem: data.origem,
+            destino: data.destino,
+            veiculo: data.veiculo,
+            fluxo: data.fluxo,
+            trip: data.trip
+        });
         showToast('⏳ Processando simulação QME...', 'info');
         
-        // Step 1: Calculate QME
         const qmeResponse = await window.pywebview.api.calculate_qme(data);
         
         if (qmeResponse.status === 'error') {
@@ -496,33 +536,15 @@ async function runSimulation() {
         displayResults(qmeResponse);
         showToast('✅ Cálculo QME concluído!', 'success');
         
-        // Step 2: Prepare Viajante demand file (if not already created)
-        console.log('\n📊 Preparing Viajante demand file...');
-        await prepareViajanteData(data.cod_sap, data.destino);
+        // Display Viajante results in the frontend
+        displayViajanteResults(viajanteResponse.results);
         
-        // Step 3: Run Viajante processing
-        console.log('\n🚚 Iniciando processamento Viajante...');
-        showToast('⏳ Processando Viajante...', 'info');
-        
-        const viajanteResponse = await window.pywebview.api.run_viajante(data.cod_sap);
-        
-        if (viajanteResponse.status === 'success') {
-            console.log('✅ Viajante processing completed successfully');
-            console.log(`   Results: ${viajanteResponse.total_rows} rows`);
-            
-            // Display Viajante results in the frontend
-            displayViajanteResults(viajanteResponse.results);
-            
-            // Calculate and update weekly trips using QME and Viajante data
-            updateWeeklyTrips(qmeResponse, viajanteResponse);
-            
-            showToast('🚚 Viajante processado com sucesso!', 'success');
-        } else {
-            console.error('❌ Error running Viajante:', viajanteResponse.message);
-            showToast('❌ Erro Viajante: ' + viajanteResponse.message, 'error');
-        }
+        // Calculate and update weekly trips using QME and Viajante data
+        console.log('\n📊 Step 4: Updating weekly trips in breakdown table...');
+        updateWeeklyTrips(qmeResponse, viajanteResponse);
         
         // Switch to dashboard tab automatically to show all results
+        console.log('\n✅ All processing complete! Switching to dashboard...');
         switchTab('dash');
         
     } catch (error) {
@@ -958,8 +980,9 @@ function displayViajanteResults(results) {
 
 function updateWeeklyTrips(qmeResponse, viajanteResponse) {
     /**
-     * Calculate and update weekly trips using QME TO BE volumes and Viajante capacity data
-     * Formula: Qtde de Viagens Semanal = Volume m³ TO BE / CAP. ÚTIL (m³)
+     * Calculate and update weekly trips using QME volumes and Viajante capacity data
+     * - TO BE: Volume m³ TO BE / CAP. ÚTIL (m³)
+     * - AS IS: Either calculated or from TDC activation count
      */
     console.log('📊 Calculating weekly trips...');
     console.log('QME Response:', qmeResponse);
@@ -970,70 +993,162 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
         return;
     }
     
-    // Extract monthly TO BE m³ from QME
-    const monthlyM3Tobe = qmeResponse.summary?.monthly_m3_tobe;
-    console.log('Monthly M3 TO BE:', monthlyM3Tobe);
+    // Check if trips were already calculated on backend (includes AS IS trips)
+    const weeklyTrips = qmeResponse.weekly_trips;
     
+    console.log('🔍 Checking backend trip data...');
+    console.log('weeklyTrips object:', weeklyTrips);
+    
+    if (weeklyTrips) {
+        console.log('✅ Using trips calculated by backend');
+        
+        const monthlyTripsTobe = weeklyTrips.monthly_trips_tobe || {};
+        const monthlyTripsAsis = weeklyTrips.monthly_trips_asis || {};
+        
+        console.log('📊 Monthly Trips TO BE:', monthlyTripsTobe);
+        console.log('📊 Monthly Trips AS IS:', monthlyTripsAsis);
+        
+        const monthKeys = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                          'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        
+        // Calculate totals
+        let totalTripsTobe = 0;
+        let totalTripsAsis = 0;
+        
+        console.log('\n🔢 Processing monthly trips:');
+        monthKeys.forEach(monthKey => {
+            const tripsTobe = monthlyTripsTobe[monthKey] || 0;
+            const tripsAsis = monthlyTripsAsis[monthKey] || 0;
+            
+            console.log(`  ${monthKey}: AS IS=${tripsAsis}, TO BE=${tripsTobe}`);
+            
+            if (typeof tripsTobe === 'number') totalTripsTobe += tripsTobe;
+            if (typeof tripsAsis === 'number') totalTripsAsis += tripsAsis;
+        });
+        
+        console.log('\n📈 Totals:');
+        console.log('  Total TO BE trips:', totalTripsTobe);
+        console.log('  Total AS IS trips:', totalTripsAsis);
+        
+        // Update the breakdown table with trip values
+        const breakdownTable = document.getElementById('breakdown-combined-body');
+        if (!breakdownTable) {
+            console.error('❌ Breakdown table not found!');
+            return;
+        }
+        
+        console.log('\n📋 Updating breakdown table...');
+        console.log('Table element:', breakdownTable);
+        
+        // Find the "Qtde de Viagens Semanal" row (it's the second row)
+        const rows = breakdownTable.getElementsByTagName('tr');
+        console.log(`Table has ${rows.length} rows`);
+        
+        if (rows.length < 2) {
+            console.error('❌ Trips row not found in breakdown table');
+            return;
+        }
+        
+        const viagensRow = rows[1]; // Second row
+        const cells = viagensRow.getElementsByTagName('td');
+        console.log(`Viagens row has ${cells.length} cells`);
+        console.log('Row element:', viagensRow);
+        
+        // Update cells: skip first cell (label), then pairs of AS IS / TO BE for each month
+        let cellIndex = 1; // Start after label
+        console.log('\n🔄 Updating cell values:');
+        
+        monthKeys.forEach((monthKey, idx) => {
+            // AS IS cell
+            if (cellIndex < cells.length) {
+                const tripsAsis = monthlyTripsAsis[monthKey] || 0;
+                const displayValue = tripsAsis > 0 ? tripsAsis : '-';
+                const oldValue = cells[cellIndex].textContent;
+                
+                console.log(`  Cell ${cellIndex} (${monthKey} AS IS): ${oldValue} → ${displayValue}`);
+                cells[cellIndex].textContent = displayValue;
+            } else {
+                console.warn(`  Cell ${cellIndex} out of bounds (AS IS ${monthKey})`);
+            }
+            cellIndex++;
+            
+            // TO BE cell
+            if (cellIndex < cells.length) {
+                const tripsTobe = monthlyTripsTobe[monthKey] || 0;
+                const displayValue = tripsTobe > 0 ? tripsTobe : '-';
+                const oldValue = cells[cellIndex].textContent;
+                
+                console.log(`  Cell ${cellIndex} (${monthKey} TO BE): ${oldValue} → ${displayValue}`);
+                cells[cellIndex].textContent = displayValue;
+            } else {
+                console.warn(`  Cell ${cellIndex} out of bounds (TO BE ${monthKey})`);
+            }
+            cellIndex++;
+        });
+        
+        // Update total cells (last two cells)
+        console.log('\n📊 Updating total cells:');
+        console.log(`  Total cells available: ${cells.length}`);
+        
+        if (cells.length >= 2) {
+            // Second to last: AS IS total
+            const totalAsisDisplay = totalTripsAsis > 0 ? totalTripsAsis : '-';
+            const asIsIndex = cells.length - 2;
+            const oldAsIsValue = cells[asIsIndex].textContent;
+            
+            console.log(`  Cell ${asIsIndex} (Total AS IS): ${oldAsIsValue} → ${totalAsisDisplay}`);
+            cells[asIsIndex].textContent = totalAsisDisplay;
+            
+            // Last: TO BE total
+            const totalTobeDisplay = totalTripsTobe > 0 ? totalTripsTobe : '-';
+            const toBeIndex = cells.length - 1;
+            const oldToBeValue = cells[toBeIndex].textContent;
+            
+            console.log(`  Cell ${toBeIndex} (Total TO BE): ${oldToBeValue} → ${totalTobeDisplay}`);
+            cells[toBeIndex].textContent = totalTobeDisplay;
+        } else {
+            console.error('❌ Not enough cells for totals!');
+        }
+        
+        console.log('\n✅ Weekly trips (AS IS & TO BE) updated in breakdown table');
+        return;
+    }
+    
+    // Fallback: if backend didn't calculate, do it here (old logic, TO BE only)
+    console.log('⚠️ Backend trips not available, calculating TO BE only...');
+    
+    const monthlyM3Tobe = qmeResponse.summary?.monthly_m3_tobe;
     if (!monthlyM3Tobe) {
         console.warn('No monthly TO BE data available');
         return;
     }
     
-    // Extract CAP. ÚTIL from Viajante results
     const viajanteResults = viajanteResponse.results || [];
-    console.log('Viajante results count:', viajanteResults.length);
-    
     if (viajanteResults.length === 0) {
         console.warn('No Viajante results available');
         return;
     }
     
-    // Map month names from Portuguese to abbreviated keys
-    const monthMapping = {
-        'Janeiro': 'Jan', 'Fevereiro': 'Fev', 'Março': 'Mar',
-        'Abril': 'Abr', 'Maio': 'Mai', 'Junho': 'Jun',
-        'Julho': 'Jul', 'Agosto': 'Ago', 'Setembro': 'Set',
-        'Outubro': 'Out', 'Novembro': 'Nov', 'Dezembro': 'Dez'
-    };
-    
     const monthKeys = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
                        'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
-    // Map English month abbreviations (from Viajante) to Portuguese (from QME)
     const englishToPortuguese = {
-        'Jan': 'Jan',
-        'Feb': 'Fev',
-        'Mar': 'Mar',
-        'Apr': 'Abr',
-        'May': 'Mai',
-        'Jun': 'Jun',
-        'Jul': 'Jul',
-        'Aug': 'Ago',
-        'Sep': 'Set',
-        'Oct': 'Out',
-        'Nov': 'Nov',
-        'Dec': 'Dez'
+        'Jan': 'Jan', 'Feb': 'Fev', 'Mar': 'Mar', 'Apr': 'Abr',
+        'May': 'Mai', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Ago',
+        'Sep': 'Set', 'Oct': 'Out', 'Nov': 'Nov', 'Dec': 'Dez'
     };
     
-    // Build capacity mapping from Viajante data
     const monthCapacity = {};
     viajanteResults.forEach(row => {
-        const mesEnglish = row['Mês']; // Comes in English from Viajante
-        const mesPortuguese = englishToPortuguese[mesEnglish]; // Convert to Portuguese
+        const mesEnglish = row['Mês'];
+        const mesPortuguese = englishToPortuguese[mesEnglish];
         const capUtil = row['CAP. ÚTIL (m³)'];
         
-        console.log(`  Row month: '${mesEnglish}' -> '${mesPortuguese}', capacity: ${capUtil}`);
-        
-        // Store first capacity found for each month (should be consistent)
         if (mesPortuguese && capUtil && !monthCapacity[mesPortuguese]) {
             monthCapacity[mesPortuguese] = capUtil;
-            console.log(`  ✓ Stored ${mesPortuguese} -> CAP: ${capUtil} m³`);
         }
     });
     
-    console.log('Month capacities:', monthCapacity);
-    
-    // Calculate trips for each month
     const monthlyTripsTobe = {};
     let totalTrips = 0;
     
@@ -1045,67 +1160,36 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
         if (capacity > 0 && volumeTobe > 0) {
             trips = Math.round(volumeTobe / capacity);
             totalTrips += trips;
-            console.log(`  ${monthKey}: ${volumeTobe.toFixed(2)} m³ / ${capacity.toFixed(2)} m³ = ${trips} viagens`);
-        } else {
-            console.log(`  ${monthKey}: No data (vol=${volumeTobe}, cap=${capacity})`);
         }
         
         monthlyTripsTobe[monthKey] = trips;
     });
     
-    console.log('Calculated trips:', monthlyTripsTobe);
-    console.log('Total trips:', totalTrips);
-    
-    // Update the breakdown table with trip values
     const breakdownTable = document.getElementById('breakdown-combined-body');
-    if (!breakdownTable) {
-        console.error('❌ Breakdown table not found!');
-        return;
-    }
+    if (!breakdownTable) return;
     
-    console.log('Found breakdown table');
-    
-    // Find the "Qtde de Viagens Semanal" row (it's the second row)
     const rows = breakdownTable.getElementsByTagName('tr');
-    console.log(`Table has ${rows.length} rows`);
+    if (rows.length < 2) return;
     
-    if (rows.length < 2) {
-        console.error('❌ Trips row not found in breakdown table');
-        return;
-    }
-    
-    const viagensRow = rows[1]; // Second row
+    const viagensRow = rows[1];
     const cells = viagensRow.getElementsByTagName('td');
-    console.log(`Viagens row has ${cells.length} cells`);
     
-    // Update cells: skip first cell (label), then pairs of AS IS / TO BE for each month
-    let cellIndex = 1; // Start after label
+    let cellIndex = 1;
     monthKeys.forEach(monthKey => {
-        // AS IS cell (keep as '-')
-        cellIndex++;
+        cellIndex++; // Skip AS IS
         
-        // TO BE cell
         if (cellIndex < cells.length) {
             const trips = monthlyTripsTobe[monthKey] || 0;
-            const displayValue = trips > 0 ? trips : '-';
-            console.log(`  Setting cell ${cellIndex} (${monthKey} TO BE) to: ${displayValue}`);
-            cells[cellIndex].textContent = displayValue;
+            cells[cellIndex].textContent = trips > 0 ? trips : '-';
         }
         cellIndex++;
     });
     
-    // Update total cells (last two cells)
     if (cells.length >= 2) {
-        // Second to last: AS IS total (keep as '-')
-        cells[cells.length - 2].textContent = '-';
-        
-        // Last: TO BE total
-        const totalDisplay = totalTrips > 0 ? totalTrips : '-';
-        console.log(`Setting total TO BE cell to: ${totalDisplay}`);
-        cells[cells.length - 1].textContent = totalDisplay;
+        cells[cells.length - 1].textContent = totalTrips > 0 ? totalTrips : '-';
     }
     
-    console.log('✅ Weekly trips updated in breakdown table');
+    console.log('✅ Weekly trips (TO BE only) updated');
 }
 
 function exportResults() {

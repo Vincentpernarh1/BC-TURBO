@@ -178,6 +178,15 @@ class Api:
                 # Store Viajante results for trip calculation
                 if results.get('status') == 'success':
                     self.viajante_results = results
+                    print(f"\n{'='*60}")
+                    print("✅ VIAJANTE RESULTS STORED IN self.viajante_results")
+                    print(f"{'='*60}")
+                    print(f"  Results count: {len(results.get('results', []))} rows")
+                    print(f"  Status: {results.get('status')}")
+                    print(f"  self.viajante_results is now: {'SET' if self.viajante_results else 'None'}")
+                    print(f"{'='*60}\n")
+                else:
+                    print(f"\n⚠️ Viajante status was NOT success: {results.get('status')}")
                 
                 # Clean NaN values for JSON
                 return clean_nan_values(results)
@@ -195,23 +204,266 @@ class Api:
                 "message": f"Erro ao executar Viajante: {str(e)}"
             }
     
-    def _calculate_weekly_trips(self, qme_results, viajante_results):
+    def _count_tdc_activations(self, cod_sap, origem, destino, veiculo, fluxo, trip):
         """
-        Calcula quantidade de viagens semanais usando volumes TO BE e capacidade do veículo
+        Conta ativações únicas por mês no TDC (para fluxos que não são Milk Run/Line Haul)
         
-        Formula: Qtde de Viagens Semanal = Volume m³ TO BE / CAP. ÚTIL (m³)
+        Filters:
+        - Codigo IMS - Origem contains COD SAP/IMS
+        - Codigo IMS Destino = destino
+        - Veiculo = veiculo (vehicle type, not CrossDock!)
+        - Fluxo Viagem = fluxo
+        - Trip = trip (if provided)
         
-        Args:
-            qme_results: Resultados do QME com monthly_m3_tobe
-            viajante_results: Resultados do Viajante com CAP. ÚTIL (m³) por mês
-            
+        Group by Mês, remove duplicate Ativacao, count rows per month
+        
         Returns:
-            Dict com quantidade de viagens por mês
+            Dict with monthly counts {'Jan': 5, 'Fev': 7, ...}
         """
         try:
-            # Extract monthly TO BE volumes from QME
+            tdc_data = self.sap_lookup.tdc_data
+            
+            if tdc_data is None or tdc_data.empty:
+                print("Warning: No TDC data available for activation counting")
+                return None
+            
+            print(f"\n{'='*60}")
+            print("TDC ACTIVATION COUNTING (AS IS)")
+            print(f"{'='*60}")
+            print(f"Initial TDC rows: {len(tdc_data)}")
+            print(f"\n🔍 Filter Parameters:")
+            print(f"  cod_sap: '{cod_sap}'")
+            print(f"  destino: '{destino}'")
+            print(f"  veiculo: '{veiculo}'")
+            print(f"  fluxo: '{fluxo}'")
+            print(f"  trip: '{trip}'" + (" (empty - will skip)" if not trip else ""))
+            print(f"\n📋 TDC Columns available: {list(tdc_data.columns)}")
+            
+            # Apply filters
+            filtered = tdc_data.copy()
+            
+            print(f"\n🔍 Applying filters step by step...\n")
+            
+            # Filter 1: Codigo IMS - Origem contains COD SAP/IMS
+            if 'Codigo IMS - Origem' in filtered.columns:
+                print(f"Filter 1: Codigo IMS - Origem contains '{cod_sap}'")
+                print(f"  Sample values in column: {filtered['Codigo IMS - Origem'].head(10).tolist()}")
+                
+                filtered = filtered[
+                    filtered['Codigo IMS - Origem'].astype(str).str.contains(str(cod_sap), case=False, na=False)
+                ]
+                print(f"  ✓ After filter: {len(filtered)} rows")
+            else:
+                print(f"  ⚠️ Column 'Codigo IMS - Origem' NOT found!")
+            
+            if filtered.empty:
+                print(f"\n❌ No data after Codigo IMS - Origem filter!")
+                months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+                return {month: 0 for month in months}
+            
+            # Filter 2: Codigo IMS Destino = destino  
+            if destino and 'Codigo IMS Destino' in filtered.columns:
+                print(f"\nFilter 2: Codigo IMS Destino contains '{destino}'")
+                print(f"  Sample values in column: {filtered['Codigo IMS Destino'].unique()[:10].tolist()}")
+                
+                filtered = filtered[
+                    filtered['Codigo IMS Destino'].astype(str).str.contains(str(destino), case=False, na=False)
+                ]
+                print(f"  ✓ After filter: {len(filtered)} rows")
+            elif destino:
+                print(f"\n  ⚠️ Column 'Codigo IMS Destino' NOT found!")
+            
+            if filtered.empty:
+                print(f"\n❌ No data after Codigo IMS Destino filter!")
+                months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+                return {month: 0 for month in months}
+            
+            # Filter 3: Veiculo = veiculo (CHANGED FROM CrossDock!)
+            if veiculo and 'Veiculo' in filtered.columns:
+                print(f"\nFilter 3: Veiculo = '{veiculo}'")
+                print(f"  Sample values in column: {filtered['Veiculo'].unique()[:20].tolist()}")
+                
+                # Try exact match
+                filtered_exact = filtered[
+                    filtered['Veiculo'].astype(str).str.strip().str.upper() == str(veiculo).strip().upper()
+                ]
+                
+                if len(filtered_exact) > 0:
+                    filtered = filtered_exact
+                    print(f"  ✓ After exact match: {len(filtered)} rows")
+                else:
+                    # Try contains match
+                    print(f"  ⚠️ No exact matches, trying contains...")
+                    filtered = filtered[
+                        filtered['Veiculo'].astype(str).str.contains(str(veiculo), case=False, na=False)
+                    ]
+                    print(f"  ✓ After contains match: {len(filtered)} rows")
+            elif veiculo:
+                print(f"\n  ⚠️ Column 'Veiculo' NOT found!")
+            
+            if filtered.empty:
+                print(f"\n❌ No data after Veiculo filter!")
+                months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+                return {month: 0 for month in months}
+            
+            # Filter 4: Fluxo Viagem = fluxo
+            if fluxo and 'Fluxo Viagem' in filtered.columns:
+                print(f"\nFilter 4: Fluxo Viagem = '{fluxo}'")
+                print(f"  Sample values in column: {filtered['Fluxo Viagem'].unique()[:10].tolist()}")
+                
+                # Try exact match
+                filtered_exact = filtered[
+                    filtered['Fluxo Viagem'].astype(str).str.strip().str.upper() == str(fluxo).strip().upper()
+                ]
+                
+                if len(filtered_exact) > 0:
+                    filtered = filtered_exact
+                    print(f"  ✓ After exact match: {len(filtered)} rows")
+                else:
+                    # Try contains match
+                    print(f"  ⚠️ No exact matches, trying contains...")
+                    filtered = filtered[
+                        filtered['Fluxo Viagem'].astype(str).str.contains(str(fluxo), case=False, na=False)
+                    ]
+                    print(f"  ✓ After contains match: {len(filtered)} rows")
+            elif fluxo:
+                print(f"\n  ⚠️ Column 'Fluxo Viagem' NOT found!")
+            
+            if filtered.empty:
+                print(f"\n❌ No data after Fluxo Viagem filter!")
+                months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+                return {month: 0 for month in months}
+            
+            # Filter 5: Trip = trip (optional - skip if empty)
+            if trip and trip.strip() and 'Trip' in filtered.columns:
+                print(f"\nFilter 5: Trip = '{trip}'")
+                print(f"  Sample values in column: {filtered['Trip'].unique()[:10].tolist()}")
+                
+                # Try exact match
+                filtered_exact = filtered[
+                    filtered['Trip'].astype(str).str.strip().str.upper() == str(trip).strip().upper()
+                ]
+                
+                if len(filtered_exact) > 0:
+                    filtered = filtered_exact
+                    print(f"  ✓ After exact match: {len(filtered)} rows")
+                else:
+                    # Try contains match
+                    print(f"  ⚠️ No exact matches, trying contains...")
+                    filtered = filtered[
+                        filtered['Trip'].astype(str).str.contains(str(trip), case=False, na=False)
+                    ]
+                    print(f"  ✓ After contains match: {len(filtered)} rows")
+            elif trip and trip.strip():
+                print(f"\n  ⚠️ Column 'Trip' NOT found!")
+            else:
+                print(f"\n  ℹ️ Trip filter skipped (empty value)")
+            
+            if filtered.empty:
+                print(f"\n❌ WARNING: No TDC data matches ALL filters combined!")
+                print(f"   This could mean:")
+                print(f"   - Some filter values don't match TDC data")
+                print(f"   - Column names are different")
+                print(f"   - Data for this combination doesn't exist in TDC")
+                print(f"\n   Returning zero counts for all months")
+                
+                # Return zero counts instead of None
+                months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                         'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+                return {month: 0 for month in months}
+            
+            print(f"\n✅ Final filtered data: {len(filtered)} rows")
+            
+            # Group by Mês, remove duplicate Ativacao, count per month
+            if 'Mês' not in filtered.columns or 'Ativacao' not in filtered.columns:
+                print("Warning: Required columns (Mês, Ativacao) not found in TDC data")
+                print(f"Available columns: {list(filtered.columns)}")
+                return None
+            
+            # Map month names to Portuguese abbreviations
+            month_mapping = {
+                'JANEIRO': 'Jan', 'JAN': 'Jan',
+                'FEVEREIRO': 'Fev', 'FEV': 'Fev',
+                'MARÇO': 'Mar', 'MAR': 'Mar',
+                'ABRIL': 'Abr', 'ABR': 'Abr',
+                'MAIO': 'Mai', 'MAI': 'Mai',
+                'JUNHO': 'Jun', 'JUN': 'Jun',
+                'JULHO': 'Jul', 'JUL': 'Jul',
+                'AGOSTO': 'Ago', 'AGO': 'Ago',
+                'SETEMBRO': 'Set', 'SET': 'Set',
+                'OUTUBRO': 'Out', 'OUT': 'Out',
+                'NOVEMBRO': 'Nov', 'NOV': 'Nov',
+                'DEZEMBRO': 'Dez', 'DEZ': 'Dez'
+            }
+            
+            monthly_counts = {}
+            months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
+                     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+            
+            # Initialize all months with 0
+            for month in months:
+                monthly_counts[month] = 0
+            
+            # Group by month and count unique activations
+            print(f"\nProcessing TDC data by month:")
+            for month_name, group in filtered.groupby('Mês'):
+                # Normalize month name
+                month_upper = str(month_name).strip().upper()
+                month_abbr = month_mapping.get(month_upper, month_upper)
+                
+                print(f"  Raw month name: '{month_name}' -> Upper: '{month_upper}' -> Abbr: '{month_abbr}'")
+                
+                # Count unique Ativacao values in this month
+                unique_activations = group['Ativacao'].nunique()
+                
+                if month_abbr in monthly_counts:
+                    monthly_counts[month_abbr] = int(unique_activations)
+                    print(f"  ✓ Mapped {month_abbr}: {unique_activations} unique activations")
+                else:
+                    print(f"  ⚠️ Month '{month_abbr}' not in expected months list!")
+            
+            print(f"\n📊 FINAL TDC ACTIVATION COUNTS:")
+            for month in months:
+                print(f"  {month}: {monthly_counts[month]} activations")
+            
+            print(f"{'='*60}\n")
+            
+            return monthly_counts
+            
+        except Exception as e:
+            print(f"Error counting TDC activations: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _calculate_weekly_trips(self, qme_results, viajante_results, fluxo='', cod_sap='', origem='', destino='', veiculo='', trip=''):
+        """
+        Calcula quantidade de viagens semanais (TO BE e AS IS)
+        
+        TO BE Formula: Volume m³ TO BE / CAP. ÚTIL (m³)
+        
+        AS IS Logic:
+        - If FLUXO contains "Milk Run" or "Line Haul": AS IS Volume / CAP. ÚTIL
+        - Otherwise: Count unique TDC Ativacao per month
+        
+        Args:
+            qme_results: Resultados do QME com monthly volumes
+            viajante_results: Resultados do Viajante com CAP. ÚTIL (m³) por mês
+            fluxo: Tipo de fluxo (para determinar método de cálculo AS IS)
+            cod_sap: Código SAP/IMS (para filtrar TDC)
+            origem: Cidade origem (para filtrar TDC)
+            destino: Cidade destino (para filtrar TDC)
+            veiculo: Veículo selecionado (para filtrar TDC)
+            trip: Trip selecionado (para filtrar TDC)
+            
+        Returns:
+            Dict com quantidade de viagens por mês (AS IS e TO BE)
+        """
+        try:
+            # Extract monthly volumes from QME
             summary = qme_results.get('summary', {})
             monthly_m3_tobe = summary.get('monthly_m3_tobe', {})
+            monthly_m3_asis = summary.get('monthly_m3_asis', {})
             
             if not monthly_m3_tobe:
                 print("Warning: No monthly TO BE data available for trip calculation")
@@ -253,7 +505,7 @@ class Api:
                 if mes_portuguese and mes_portuguese not in month_capacity and cap_util:
                     month_capacity[mes_portuguese] = cap_util
             
-            # Calculate trips for each month
+            # Calculate TO BE trips for each month
             monthly_trips_tobe = {}
             months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
                      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -268,8 +520,55 @@ class Api:
                 else:
                     monthly_trips_tobe[month] = 0
             
+            # Calculate AS IS trips based on FLUXO type
+            monthly_trips_asis = {}
+            fluxo_lower = str(fluxo).lower()
+            
+            if 'milk run' in fluxo_lower or 'line haul' in fluxo_lower:
+                # Method 1: Calculate AS IS trips = AS IS Volume / CAP. ÚTIL
+                print(f"\n{'='*60}")
+                print(f"AS IS TRIPS CALCULATION - MILK RUN/LINE HAUL")
+                print(f"{'='*60}")
+                
+                for month in months:
+                    volume_asis = monthly_m3_asis.get(month, 0)
+                    capacity = month_capacity.get(month, 0)
+                    
+                    if capacity > 0 and volume_asis > 0:
+                        trips = round(volume_asis / capacity, 0)
+                        monthly_trips_asis[month] = int(trips)
+                    else:
+                        monthly_trips_asis[month] = 0
+                    
+                    print(f"  {month}: {volume_asis:.2f} m³ / {capacity:.2f} m³ = {monthly_trips_asis[month]} viagens")
+                
+                print(f"{'='*60}\n")
+            else:
+                # Method 2: Count unique TDC activations and convert to weekly
+                print(f"\n{'='*60}")
+                print(f"AS IS TRIPS CALCULATION - TDC ACTIVATION COUNT")
+                print(f"{'='*60}")
+                
+                tdc_counts = self._count_tdc_activations(cod_sap, origem, destino, veiculo, fluxo, trip)
+                
+                if tdc_counts:
+                    # Convert monthly activations to weekly quantities by dividing by 4.4
+                    print(f"\n📊 Converting monthly activations to weekly quantities (÷ 4.4):")
+                    monthly_trips_asis = {}
+                    for month in months:
+                        monthly_count = tdc_counts.get(month, 0)
+                        weekly_count = int(round(monthly_count / 4.4)) if monthly_count > 0 else 0
+                        monthly_trips_asis[month] = weekly_count
+                        print(f"  {month}: {monthly_count} monthly activations → {weekly_count} weekly trips")
+                else:
+                    # Fallback to 0 if no TDC data
+                    monthly_trips_asis = {month: 0 for month in months}
+                
+                print(f"{'='*60}\n")
+            
+            # Print TO BE trips summary
             print(f"\n{'='*60}")
-            print("WEEKLY TRIPS CALCULATION")
+            print("TO BE TRIPS CALCULATION")
             print(f"{'='*60}")
             for month in months:
                 volume = monthly_m3_tobe.get(month, 0)
@@ -278,8 +577,25 @@ class Api:
                 print(f"  {month}: {volume:.2f} m³ / {capacity:.2f} m³ = {trips} viagens")
             print(f"{'='*60}\n")
             
+            # Print final summary of what's being returned
+            print(f"\n{'='*60}")
+            print("📦 FINAL TRIP DATA BEING RETURNED TO FRONTEND")
+            print(f"{'='*60}")
+            print(f"FLUXO Type: '{fluxo}' (Milk Run/Line Haul: {('milk run' in fluxo_lower or 'line haul' in fluxo_lower)})")
+            print(f"\n📊 AS IS Trips by Month:")
+            for month in months:
+                print(f"  {month}: {monthly_trips_asis.get(month, 0)}")
+            print(f"\n📊 TO BE Trips by Month:")
+            for month in months:
+                print(f"  {month}: {monthly_trips_tobe.get(month, 0)}")
+            print(f"\n📊 Month Capacities (CAP. ÚTIL):")
+            for month in months:
+                print(f"  {month}: {month_capacity.get(month, 0):.2f} m³")
+            print(f"{'='*60}\n")
+            
             return {
                 'monthly_trips_tobe': monthly_trips_tobe,
+                'monthly_trips_asis': monthly_trips_asis,
                 'month_capacity': month_capacity
             }
             
@@ -291,19 +607,31 @@ class Api:
 
     def calculate_qme(self, data):
         """Calcula QME usando o módulo QMECalculator"""
+        
+        print(f"\n{'='*60}")
+        print("🔵 CALCULATE_QME CALLED")
+        print(f"{'='*60}")
+        print(f"  self.viajante_results is: {'SET' if self.viajante_results else 'None'}")
+        if self.viajante_results:
+            print(f"  Viajante results count: {len(self.viajante_results.get('results', []))} rows")
+        print(f"{'='*60}\n")
+        
         # Obtém o DataFrame completo de PFEP para filtrar por PNs do Astobe
         pfep_data = self.sap_lookup.get_pfep_data()
         
-        # Obtém o DataFrame FILTRADO de NPRC do último lookup SAP (não o completo)
+        # Extrai o cod_sap dos dados para usar no cache lookup
+        cod_sap = data.get('cod_sap', '')
+        
+        # Obtém o DataFrame FILTRADO de NPRC para este SAP code específico
         # Isso garante que usamos apenas os dados NPRC relevantes para o SAP selecionado
-        nprc_data = self.sap_lookup.get_cached_nprc_data()
+        nprc_data = self.sap_lookup.get_cached_nprc_data(cod_sap)
         
         # Se não houver cache, usa o completo como fallback
         if nprc_data is None:
             nprc_data = self.sap_lookup.get_nprc_data()
-            print("WARNING: Using full NPRC database (no cached filter available)")
+            print(f"WARNING: Using full NPRC database (no cached filter available for {cod_sap})")
         else:
-            print(f"Using cached NPRC data: {len(nprc_data)} rows filtered by SAP lookup")
+            print(f"Using cached NPRC data for {cod_sap}: {len(nprc_data)} rows filtered by SAP lookup")
         
         # Obtém o DataFrame completo de MDR para lookup de volumes
         mdr_data = self.sap_lookup.get_mdr_data()
@@ -313,9 +641,40 @@ class Api:
         
         # Calculate weekly trips if Viajante results are available
         if result.get('status') == 'success' and self.viajante_results:
-            trip_data = self._calculate_weekly_trips(result, self.viajante_results)
+            # Extract user input parameters for TDC filtering
+            cod_sap = data.get('cod_sap', '')
+            origem = data.get('origem', '')
+            destino = data.get('destino', '')
+            veiculo = data.get('veiculo', '')
+            fluxo = data.get('fluxo', '')
+            trip = data.get('trip', '')
+            
+            print(f"\n{'='*60}")
+            print("CALLING _calculate_weekly_trips WITH PARAMETERS:")
+            print(f"{'='*60}")
+            print(f"  cod_sap: '{cod_sap}'")
+            print(f"  origem: '{origem}'")
+            print(f"  destino: '{destino}'")
+            print(f"  veiculo: '{veiculo}'")
+            print(f"  fluxo: '{fluxo}'")
+            print(f"  trip: '{trip}'")
+            print(f"{'='*60}\n")
+            
+            trip_data = self._calculate_weekly_trips(
+                result, 
+                self.viajante_results,
+                fluxo=fluxo,
+                cod_sap=cod_sap,
+                origem=origem,
+                destino=destino,
+                veiculo=veiculo,
+                trip=trip
+            )
             if trip_data:
                 result['weekly_trips'] = trip_data
+                print(f"\n✅ Trip data added to result: {list(trip_data.keys())}")
+            else:
+                print(f"\n⚠️ No trip data returned from calculation")
         
         # Clean NaN values before returning (NaN is not valid JSON)
         return clean_nan_values(result)
@@ -350,6 +709,7 @@ class Api:
             # Get weekly trips data if available
             weekly_trips = results.get('weekly_trips', {})
             monthly_trips_tobe = weekly_trips.get('monthly_trips_tobe', {})
+            monthly_trips_asis = weekly_trips.get('monthly_trips_asis', {})
             
             # Create breakdown table data
             breakdown_data = []
@@ -363,20 +723,30 @@ class Api:
             vol_row['Total TO BE'] = sum(monthly_m3_tobe.values())
             breakdown_data.append(vol_row)
             
-            # Qtde de viagens row - now with calculated values
+            # Qtde de viagens row - now with calculated AS IS and TO BE values
             viagens_row = {'Métrica': f'Qtde de Viagens Semanal'}
             for month in months:
-                viagens_row[f'{month} AS IS'] = '-'  # AS IS will be calculated later
-                # Use calculated trips if available, otherwise placeholder
-                trips = monthly_trips_tobe.get(month, 0) if monthly_trips_tobe else 0
-                viagens_row[f'{month} TO BE'] = trips if trips > 0 else '-'
-            viagens_row['Total AS IS'] = '-'
+                # AS IS trips (from TDC or calculation)
+                trips_asis = monthly_trips_asis.get(month, 0) if monthly_trips_asis else 0
+                viagens_row[f'{month} AS IS'] = trips_asis if trips_asis > 0 else '-'
+                
+                # TO BE trips (calculated)
+                trips_tobe = monthly_trips_tobe.get(month, 0) if monthly_trips_tobe else 0
+                viagens_row[f'{month} TO BE'] = trips_tobe if trips_tobe > 0 else '-'
+            
             # Calculate total trips (sum of all months)
+            if monthly_trips_asis:
+                total_trips_asis = sum(v for v in monthly_trips_asis.values() if isinstance(v, (int, float)))
+                viagens_row['Total AS IS'] = int(total_trips_asis) if total_trips_asis > 0 else '-'
+            else:
+                viagens_row['Total AS IS'] = '-'
+            
             if monthly_trips_tobe:
-                total_trips = sum(v for v in monthly_trips_tobe.values() if isinstance(v, (int, float)))
-                viagens_row['Total TO BE'] = int(total_trips) if total_trips > 0 else '-'
+                total_trips_tobe = sum(v for v in monthly_trips_tobe.values() if isinstance(v, (int, float)))
+                viagens_row['Total TO BE'] = int(total_trips_tobe) if total_trips_tobe > 0 else '-'
             else:
                 viagens_row['Total TO BE'] = '-'
+            
             breakdown_data.append(viagens_row)
             
             # Custo de veículo semanal row (placeholder)

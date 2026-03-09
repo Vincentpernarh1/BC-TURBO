@@ -744,16 +744,54 @@ class SAPLookup:
         """Retorna o DataFrame completo de dados NPRC"""
         return self.nprc_data
     
-    def get_cached_nprc_data(self):
-        """Retorna o DataFrame filtrado de NPRC do último lookup SAP (se disponível)"""
+    def get_cached_nprc_data(self, cod_sap=None):
+        """Retorna o DataFrame filtrado de NPRC para um SAP code específico (se disponível)
+        
+        Args:
+            cod_sap: Código SAP/IMS para buscar no cache. Se None, retorna o primeiro disponível.
+        
+        Returns:
+            DataFrame filtrado de NPRC ou None
+        """
         # Verifica se há dados em cache
         if not self.sap_cache:
             return None
         
-        # Pega o último cache (assumindo que só temos um SAP code ativo por vez)
+        # Se cod_sap foi fornecido, busca cache específico
+        if cod_sap:
+            # Limpa e converte o código
+            if isinstance(cod_sap, (int, float)):
+                cod_sap_str = str(int(cod_sap)).strip()
+            else:
+                cod_sap_str = str(cod_sap).strip().replace('.0', '')
+            
+            cod_length = len(cod_sap_str)
+            
+            # Determina qual coluna foi usada baseado no tamanho
+            if cod_length < 7:
+                filter_column = "COD IMS"
+            elif 6 < cod_length < 10:
+                filter_column = "COD SAP"
+            else:
+                return None
+            
+            # Busca cache com a key específica
+            cache_key = f"{filter_column}_{cod_sap_str}"
+            if cache_key in self.sap_cache:
+                cached_data = self.sap_cache[cache_key]
+                nprc_result = cached_data.get('nprc_result')
+                if nprc_result is not None:
+                    print(f"✅ Using cached NPRC data for {filter_column}={cod_sap_str} ({len(nprc_result)} rows)")
+                    return nprc_result
+            else:
+                print(f"⚠️ No cached NPRC data found for {filter_column}={cod_sap_str}")
+                return None
+        
+        # Fallback: pega o primeiro cache disponível
         for cache_key, cached_data in self.sap_cache.items():
             nprc_result = cached_data.get('nprc_result')
             if nprc_result is not None:
+                print(f"⚠️ Using first available cached NPRC data (key: {cache_key})")
                 return nprc_result
         
         return None

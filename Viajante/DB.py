@@ -572,7 +572,7 @@ def completar_informacoes(tree, veiculo, tree_resumo, canvas_caminhoes, caminhao
             lambda row: 1 if (row['FORNECEDOR'], row['EMBALAGEM']) in sobrepostas else 0, axis=1)
 
         df_saturacao['CHAVE'] = df_saturacao['COD FORNECEDOR'].astype(str) + '-' + df_saturacao['EMBALAGEM'].astype(str)
-
+        
 
         # --- Eficiência de empilhamento por embalagem (evita .map com índice duplicado) ---
         mapa_efi = db_efi.drop_duplicates('CHAVE FORNE + MDR').set_index('CHAVE FORNE + MDR')[valor_veiculo]
@@ -858,6 +858,8 @@ def consolidar_dados():
             (template['Mês'] == mes) &
             (template['COD DESTINO'] == cod_dest)
         ]
+        
+        
         veiculo_template_vals = temp_rows['VEICULO'].dropna().unique() if not temp_rows.empty else []
         veiculo_template = veiculo_template_vals[0] if len(veiculo_template_vals) > 0 else None
         
@@ -1058,11 +1060,65 @@ def run_viajante_headless(demanda_df, cod_sap, cod_destino, veiculo, caminho_BD=
         # Prepare Template.xlsx from demanda_df
         template_df = demanda_df.copy()
         
+        # Load FLUXO to get COD FORNECEDOR mapping for COD IMS codes
+        fluxos_path = os.path.join(caminho_base, caminho_BD, "FLUXO.xlsx")
+        fluxos = pd.DataFrame()
+        if os.path.exists(fluxos_path):
+            try:
+                fluxos = pd.read_excel(fluxos_path, sheet_name='FLUXOS')
+            except Exception as e:
+                print(f"Warning: Could not load FLUXO.xlsx: {e}")
+        
+        # Initialize columns
+        template_df['COD IMS'] = None
+        template_df['TIPO SATURACAO'] = None
+        
+        # Determine if codes are COD IMS or COD FORNECEDOR based on length
+        # Rule: if length < 8, it's COD IMS; otherwise it's COD FORNECEDOR
+        updated_cod_fornecedor = []
+        updated_cod_ims = []
+        
+        for idx, row in template_df.iterrows():
+            cod = str(row['COD FORNECEDOR']).strip()
+            
+            if len(cod) < 8:
+                # It's a COD IMS - move to COD IMS column
+                updated_cod_ims.append(cod)
+                
+                # Look up actual COD FORNECEDOR from FLUXO based on COD DESTINO
+                cod_forn_found = None
+                if not fluxos.empty:
+                    matching_routes = fluxos[
+                        fluxos['COD DESTINO'].astype(str).str.contains(str(cod_destino), na=False)
+                    ]
+                    
+                    if not matching_routes.empty:
+                        # Get COD FORNECEDOR from the first matching route
+                        cod_forn_raw = matching_routes.iloc[0].get('COD FORNECEDOR')
+                        if pd.notna(cod_forn_raw):
+                            # Handle multiple codes separated by "/"
+                            cod_forn_parts = str(cod_forn_raw).split('/')
+                            # Try to find a code that matches or use the first valid one
+                            for part in cod_forn_parts:
+                                part = part.strip()
+                                if part and len(part) >= 8:  # Valid COD FORNECEDOR
+                                    cod_forn_found = part
+                                    break
+                
+                # Use found COD FORNECEDOR or keep the original as fallback
+                updated_cod_fornecedor.append(cod_forn_found if cod_forn_found else cod)
+            else:
+                # It's already a COD FORNECEDOR - keep it
+                updated_cod_fornecedor.append(cod)
+                updated_cod_ims.append(None)
+        
+        # Update columns with classified codes
+        template_df['COD FORNECEDOR'] = updated_cod_fornecedor
+        template_df['COD IMS'] = updated_cod_ims
+        
         # Add VEICULO and COD DESTINO columns (use numeric code for VEICULO)
         template_df['VEICULO'] = veiculo_code
         template_df['COD DESTINO'] = cod_destino
-        template_df['COD IMS'] = None  # Will be filled from FLUXO lookup later
-        template_df['TIPO SATURACAO'] = None  # Will be filled from FLUXO lookup later
         
         # Ensure correct column order for Viajante processing
         template_df = template_df[['COD FORNECEDOR', 'COD IMS', 'COD DESTINO', 'DESENHO', 'QTDE', 'VEICULO', 'TIPO SATURACAO', 'Mês']]
@@ -1128,6 +1184,7 @@ def run_viajante_headless(demanda_df, cod_sap, cod_destino, veiculo, caminho_BD=
         # Filter to only requested columns that exist
         available_cols = [col for col in columns_to_return if col in df_volume.columns]
         df_results = df_volume[available_cols]
+        
         
         # Convert to list of dicts for JSON serialization
         results = df_results.to_dict('records')
