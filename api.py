@@ -232,7 +232,7 @@ class Api:
             print(f"{'='*60}")
             print(f"Initial TDC rows: {len(tdc_data)}")
             print(f"\n🔍 Filter Parameters:")
-            print(f"  cod_sap: '{cod_sap}'")
+            print(f"  cod_sap (input): '{cod_sap}'")
             print(f"  destino: '{destino}'")
             print(f"  veiculo: '{veiculo}'")
             print(f"  fluxo: '{fluxo}'")
@@ -242,15 +242,32 @@ class Api:
             # Apply filters
             filtered = tdc_data.copy()
             
+            # Resolve SAP code → IMS code (TDC stores IMS codes, not SAP codes)
+            cod_sap_str = str(cod_sap).strip().replace('.0', '')
+            ims_code = cod_sap_str  # default: assume already IMS
+            
+            if len(cod_sap_str) > 6:
+                # It's a SAP code — look up its COD IMS from the PFEP cache
+                cache_key = f"COD SAP_{cod_sap_str}"
+                if cache_key in self.sap_lookup.sap_cache:
+                    cached_ims = self.sap_lookup.sap_cache[cache_key].get('cod_ims_for_tdc')
+                    if cached_ims:
+                        ims_code = str(cached_ims).strip()
+                        print(f"  Resolved SAP {cod_sap_str} → IMS {ims_code} for TDC filter")
+                    else:
+                        print(f"  ⚠️ SAP {cod_sap_str} in cache but no IMS code — using SAP as fallback")
+                else:
+                    print(f"  ⚠️ SAP {cod_sap_str} not in cache — using SAP code as fallback")
+            
             print(f"\n🔍 Applying filters step by step...\n")
             
-            # Filter 1: Codigo IMS - Origem contains COD SAP/IMS
+            # Filter 1: Codigo IMS - Origem = IMS code
             if 'Codigo IMS - Origem' in filtered.columns:
-                print(f"Filter 1: Codigo IMS - Origem contains '{cod_sap}'")
+                print(f"Filter 1: Codigo IMS - Origem = '{ims_code}'")
                 print(f"  Sample values in column: {filtered['Codigo IMS - Origem'].head(10).tolist()}")
                 
                 filtered = filtered[
-                    filtered['Codigo IMS - Origem'].astype(str).str.contains(str(cod_sap), case=False, na=False)
+                    filtered['Codigo IMS - Origem'].astype(str).str.strip() == ims_code
                 ]
                 print(f"  ✓ After filter: {len(filtered)} rows")
             else:

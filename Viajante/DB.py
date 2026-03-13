@@ -1072,46 +1072,38 @@ def run_viajante_headless(demanda_df, cod_sap, cod_destino, veiculo, caminho_BD=
         # Initialize columns
         template_df['COD IMS'] = None
         template_df['TIPO SATURACAO'] = None
-        
-        # Determine if codes are COD IMS or COD FORNECEDOR based on length
-        # Rule: if length < 8, it's COD IMS; otherwise it's COD FORNECEDOR
+
+        # Classify each entered code and cross-fill COD FORNECEDOR / COD IMS from FLUXO
+        # Rule: length < 8 → COD IMS; length >= 8 → COD FORNECEDOR
         updated_cod_fornecedor = []
         updated_cod_ims = []
-        
+
         for idx, row in template_df.iterrows():
             cod = str(row['COD FORNECEDOR']).strip()
-            
+
             if len(cod) < 8:
-                # It's a COD IMS - move to COD IMS column
+                # Entered code is COD IMS — look up COD FORNECEDOR in FLUXO
                 updated_cod_ims.append(cod)
-                
-                # Look up actual COD FORNECEDOR from FLUXO based on COD DESTINO
                 cod_forn_found = None
-                if not fluxos.empty:
-                    matching_routes = fluxos[
-                        fluxos['COD DESTINO'].astype(str).str.contains(str(cod_destino), na=False)
-                    ]
-                    
-                    if not matching_routes.empty:
-                        # Get COD FORNECEDOR from the first matching route
-                        cod_forn_raw = matching_routes.iloc[0].get('COD FORNECEDOR')
-                        if pd.notna(cod_forn_raw):
-                            # Handle multiple codes separated by "/"
-                            cod_forn_parts = str(cod_forn_raw).split('/')
-                            # Try to find a code that matches or use the first valid one
-                            for part in cod_forn_parts:
-                                part = part.strip()
-                                if part and len(part) >= 8:  # Valid COD FORNECEDOR
-                                    cod_forn_found = part
-                                    break
-                
-                # Use found COD FORNECEDOR or keep the original as fallback
+                if not fluxos.empty and 'COD IMS' in fluxos.columns and 'COD FORNECEDOR' in fluxos.columns:
+                    match = fluxos[fluxos['COD IMS'].astype(str).str.contains(cod, na=False)]
+                    if not match.empty:
+                        val = match.iloc[0]['COD FORNECEDOR']
+                        if pd.notna(val):
+                            cod_forn_found = str(val).strip()
                 updated_cod_fornecedor.append(cod_forn_found if cod_forn_found else cod)
             else:
-                # It's already a COD FORNECEDOR - keep it
+                # Entered code is COD FORNECEDOR — look up COD IMS in FLUXO
                 updated_cod_fornecedor.append(cod)
-                updated_cod_ims.append(None)
-        
+                cod_ims_found = None
+                if not fluxos.empty and 'COD FORNECEDOR' in fluxos.columns and 'COD IMS' in fluxos.columns:
+                    match = fluxos[fluxos['COD FORNECEDOR'].astype(str).str.contains(cod, na=False)]
+                    if not match.empty:
+                        val = match.iloc[0]['COD IMS']
+                        if pd.notna(val):
+                            cod_ims_found = str(val).strip()
+                updated_cod_ims.append(cod_ims_found)
+
         # Update columns with classified codes
         template_df['COD FORNECEDOR'] = updated_cod_fornecedor
         template_df['COD IMS'] = updated_cod_ims
