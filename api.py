@@ -616,7 +616,7 @@ class Api:
             print(f"  Viajante results count: {len(self.viajante_results.get('results', []))} rows")
         print(f"{'='*60}\n")
         
-        # Obtém o DataFrame completo de PFEP para filtrar por PNs do Astobe
+        # Obtém o DataFrame completo de PFEP para filtrar por PNs do Astobe 
         pfep_data = self.sap_lookup.get_pfep_data()
         
         # Extrai o cod_sap dos dados para usar no cache lookup
