@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 import os
 import traceback
+from .tarifa_manager import TarifaManager
   
 class SAPLookup:
     def __init__(self, db_folder=None):
@@ -15,6 +16,7 @@ class SAPLookup:
         self.mdr_data = None
         self.nprc_data = None
         self.last_lookup_result = None  # Store last lookup result to reuse in calculations
+        self.tarifa_manager = TarifaManager(db_folder)  # Initialize Tarifa Manager
     
     def _needs_parquet_conversion(self, excel_path, parquet_path):
         """Verifica se o arquivo Excel precisa ser convertido para Parquet"""
@@ -475,8 +477,8 @@ class SAPLookup:
                 pfep_result = cached['pfep_result']
                 cod_ims_for_tdc = cached['cod_ims_for_tdc']
                 nprc_result = cached['nprc_result']
-                print(f"PFEP lookup for {filter_column}={cod_sap_str}: using cached results ({cached['pfep_count']} matches)")
-                print(f"NPRC lookup: using cached results ({cached['nprc_count']} matches)")
+                # print(f"PFEP lookup for {filter_column}={cod_sap_str}: using cached results ({cached['pfep_count']} matches)")
+                # print(f"NPRC lookup: using cached results ({cached['nprc_count']} matches)")
             else:
                 # Busca nos dados PFEP
                 pfep_result = None
@@ -487,7 +489,7 @@ class SAPLookup:
                     mask = (self.pfep_data[filter_column] == cod_sap_str)
                     pfep_match = self.pfep_data[mask]
                     
-                    print(f"PFEP lookup for {filter_column}={cod_sap_str}: found {len(pfep_match)} matches")
+                    # print(f"PFEP lookup for {filter_column}={cod_sap_str}: found {len(pfep_match)} matches")
                     
                     if not pfep_match.empty:
                         pfep_result = pfep_match.iloc[0].to_dict()
@@ -525,7 +527,7 @@ class SAPLookup:
                         nprc_mask = self.nprc_data['PN'].astype(str).str.strip().isin(related_pns)
                         nprc_filtered_df = self.nprc_data[nprc_mask]
                         
-                        print(f"NPRC lookup: found {len(nprc_filtered_df)} matches")
+                        # print(f"NPRC lookup: found {len(nprc_filtered_df)} matches")
                         
                         if nprc_filtered_df.empty and len(related_pns) > 0:
                             # Debug: verifica se há match sem strip
@@ -701,6 +703,11 @@ class SAPLookup:
             progress_callback("Loading NPRC files...")
         self._load_nprc_files()
         
+        # Load Tarifa data (all fluxos)
+        if progress_callback:
+            progress_callback("Loading Tarifa data (fluxos)...")
+        self.tarifa_manager.update_db_folder(db_folder, progress_callback)
+        
         print("="*60)
         print("✓ Database ready! You can now perform searches.")
         print("="*60 + "\n")
@@ -718,6 +725,7 @@ class SAPLookup:
         self._load_tdc_files()
         self._load_mdr_files()
         self._load_nprc_files()
+        self.tarifa_manager.load_tarifa_data()
     
     def clear_cache(self):
         """Limpa o cache de dados SAP"""
@@ -727,6 +735,7 @@ class SAPLookup:
         self.mdr_data = None
         self.nprc_data = None
         self.last_lookup_result = None
+        self.tarifa_manager.clear_data()  # Clear Tarifa data too
     
     def get_last_lookup_result(self):
         """Retorna o último resultado de lookup para reutilizar nos cálculos"""
@@ -994,3 +1003,32 @@ class SAPLookup:
             'cidade_destino': getattr(self, 'viajante_cidade_destino', None),
             'veiculo': getattr(self, 'viajante_veiculo', None)
         }
+    
+    # ==================== Tarifa Management Methods ====================
+    
+    def get_available_fluxos(self):
+        """Retorna lista de fluxos de tarifa disponíveis"""
+        return self.tarifa_manager.get_fluxo_names()
+    
+    def get_fluxo_data(self, fluxo_name):
+        """Retorna DataFrame de um fluxo específico"""
+        return self.tarifa_manager.get_fluxo_data(fluxo_name)
+    
+    def calculate_tariff(self, fluxo_name, origem, destino, veiculo, km_value, viagem=None):
+        """
+        Calcula a melhor tarifa baseada nos parâmetros fornecidos
+        
+        Args:
+            fluxo_name: Nome do fluxo (ex: "01. PRINCIPAL")
+            origem: Cidade de origem
+            destino: Cidade de destino
+            veiculo: Tipo de veículo
+            km_value: Distância em KM
+            viagem: Tipo de viagem (RT/OW) - opcional para alguns fluxos
+        
+        Returns:
+            Dict com os resultados da melhor tarifa e opções alternativas
+        """
+        return self.tarifa_manager.calculate_tariff(
+            fluxo_name, origem, destino, veiculo, km_value, viagem
+        )

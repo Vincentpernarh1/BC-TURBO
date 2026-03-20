@@ -690,22 +690,31 @@ function displayResults(response) {
         viagensRow.innerHTML += '<td class="td-breakdown-as">-</td><td class="td-breakdown-to">-</td>';
         breakdownCombinedBody.appendChild(viagensRow);
         
-        // Custo semanal Truck row
+        // Custo mensal de frete row (trips × tarifa_real)
         const custoSemanalRow = document.createElement('tr');
-        custoSemanalRow.innerHTML = `<td class="td-label">Custo de ${veiculoName} Semanal</td>`;
+        custoSemanalRow.innerHTML = `<td class="td-label">Custo Mensal de Frete (${veiculoName})</td>`;
         months.forEach(month => {
             custoSemanalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
         });
-        custoSemanalRow.innerHTML += '<td class="td-breakdown-total" colspan="2">R$ -</td>';
+        custoSemanalRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total">R$ -</td>';
         breakdownCombinedBody.appendChild(custoSemanalRow);
-        
-        // Custo total caminhão row
-        const custoTotalRow = document.createElement('tr');
-        custoTotalRow.innerHTML = `<td class="td-label">Custo total de ${veiculoName} Semanal </td>`;
-        months.forEach(month => {
-            custoTotalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
+
+        // Pedágio row (placeholder — to be filled from Tarifa data)
+        const pedagioRow = document.createElement('tr');
+        pedagioRow.innerHTML = `<td class="td-label">Pedágio</td>`;
+        months.forEach(() => {
+            pedagioRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
         });
-        custoTotalRow.innerHTML += '<td class="td-breakdown-total" colspan="2">R$ -</td>';
+        pedagioRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total">R$ -</td>';
+        breakdownCombinedBody.appendChild(pedagioRow);
+        
+        // Economia mensal de frete row (AS IS cost − TO BE cost)
+        const custoTotalRow = document.createElement('tr');
+        custoTotalRow.innerHTML = `<td class="td-label">Economia Mensal de Frete</td>`;
+        months.forEach(month => {
+            custoTotalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to"></td>';
+        });
+        custoTotalRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total"></td>';
         breakdownCombinedBody.appendChild(custoTotalRow);
         
         // TOTAL SEMANAL row
@@ -1111,6 +1120,79 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
         }
         
         console.log('\n✅ Weekly trips (AS IS & TO BE) updated in breakdown table');
+        
+        // ── Freight cost rows ──────────────────────────────────────────
+        const freight = weeklyTrips.freight;
+        if (freight && freight.status === 'success') {
+            const tarifaReal = freight.tarifa_real || 0;
+            const monthlyFreightAsis = freight.monthly_freight_asis || {};
+            const monthlyFreightTobe = freight.monthly_freight_tobe || {};
+            const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            
+            // Row 2 — Custo Mensal de Frete = trips × tarifa_real (per month, AS IS vs TO BE)
+            if (rows.length >= 3) {
+                const cCells = rows[2].getElementsByTagName('td');
+                let totalAsis = 0;
+                let totalTobe = 0;
+                let ci = 1;
+                monthKeys.forEach(month => {
+                    const asis = monthlyFreightAsis[month] || 0;
+                    const tobe = monthlyFreightTobe[month] || 0;
+                    totalAsis += asis;
+                    totalTobe += tobe;
+                    if (ci < cCells.length) cCells[ci].textContent = fmt(asis);
+                    if (ci + 1 < cCells.length) cCells[ci + 1].textContent = fmt(tobe);
+                    ci += 2;
+                });
+                // Total annual cells
+                if (cCells.length >= 2) {
+                    cCells[cCells.length - 2].textContent = fmt(totalAsis);
+                    cCells[cCells.length - 1].textContent = fmt(totalTobe);
+                }
+            }
+            
+            // Row 3 — Pedágio: placeholder, skip for now (will be filled when data is available)
+            
+            // Row 4 — Economia Mensal de Frete = AS IS cost − TO BE cost
+            if (rows.length >= 5) {
+                const ctCells = rows[4].getElementsByTagName('td');
+                let totalSaving = 0;
+                let ci = 1;
+                monthKeys.forEach(month => {
+                    const saving = (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0);
+                    totalSaving += saving;
+                    // Span both AS IS and TO BE columns with the saving value
+                    if (ci < ctCells.length) ctCells[ci].textContent = fmt(saving);
+                    if (ci + 1 < ctCells.length) ctCells[ci + 1].textContent = '';
+                    ci += 2;
+                });
+                if (ctCells.length >= 2) {
+                    ctCells[ctCells.length - 2].textContent = fmt(totalSaving);
+                    ctCells[ctCells.length - 1].textContent = '';
+                }
+            }
+            
+            // Update savings row in monthly summary table
+            const monthlyBodyEl = document.getElementById('dashboard-monthly-body');
+            if (monthlyBodyEl) {
+                const savingRowEl = monthlyBodyEl.querySelector('tr:last-child');
+                if (savingRowEl) {
+                    const sCells = savingRowEl.getElementsByTagName('td');
+                    let totalSaving = 0;
+                    let si = 1;
+                    monthKeys.forEach(month => {
+                        const saving = (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0);
+                        totalSaving += saving;
+                        if (si < sCells.length) sCells[si].textContent = fmt(saving);
+                        si++;
+                    });
+                    if (sCells.length > 0) sCells[sCells.length - 1].textContent = fmt(totalSaving);
+                }
+            }
+            
+            console.log('✅ Freight costs updated in breakdown table');
+        }
+        
         return;
     }
     

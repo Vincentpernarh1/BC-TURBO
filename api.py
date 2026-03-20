@@ -227,17 +227,17 @@ class Api:
                 print("Warning: No TDC data available for activation counting")
                 return None
             
-            print(f"\n{'='*60}")
-            print("TDC ACTIVATION COUNTING (AS IS)")
-            print(f"{'='*60}")
-            print(f"Initial TDC rows: {len(tdc_data)}")
-            print(f"\n🔍 Filter Parameters:")
-            print(f"  cod_sap (input): '{cod_sap}'")
-            print(f"  destino: '{destino}'")
-            print(f"  veiculo: '{veiculo}'")
-            print(f"  fluxo: '{fluxo}'")
-            print(f"  trip: '{trip}'" + (" (empty - will skip)" if not trip else ""))
-            print(f"\n📋 TDC Columns available: {list(tdc_data.columns)}")
+            # print(f"\n{'='*60}")
+            # print("TDC ACTIVATION COUNTING (AS IS)")
+            # print(f"{'='*60}")
+            # print(f"Initial TDC rows: {len(tdc_data)}")
+            # print(f"\n🔍 Filter Parameters:")
+            # print(f"  cod_sap (input): '{cod_sap}'")
+            # print(f"  destino: '{destino}'")
+            # print(f"  veiculo: '{veiculo}'")
+            # print(f"  fluxo: '{fluxo}'")
+            # print(f"  trip: '{trip}'" + (" (empty - will skip)" if not trip else ""))
+            # print(f"\n📋 TDC Columns available: {list(tdc_data.columns)}")
             
             # Apply filters
             filtered = tdc_data.copy()
@@ -422,13 +422,13 @@ class Api:
                 monthly_counts[month] = 0
             
             # Group by month and count unique activations
-            print(f"\nProcessing TDC data by month:")
+            # print(f"\nProcessing TDC data by month:")
             for month_name, group in filtered.groupby('Mês'):
                 # Normalize month name
                 month_upper = str(month_name).strip().upper()
                 month_abbr = month_mapping.get(month_upper, month_upper)
                 
-                print(f"  Raw month name: '{month_name}' -> Upper: '{month_upper}' -> Abbr: '{month_abbr}'")
+                # print(f"  Raw month name: '{month_name}' -> Upper: '{month_upper}' -> Abbr: '{month_abbr}'")
                 
                 # Count unique Ativacao values in this month
                 unique_activations = group['Ativacao'].nunique()
@@ -439,7 +439,7 @@ class Api:
                 else:
                     print(f"  ⚠️ Month '{month_abbr}' not in expected months list!")
             
-            print(f"\n📊 FINAL TDC ACTIVATION COUNTS:")
+            # print(f"\n📊 FINAL TDC ACTIVATION COUNTS:")
             for month in months:
                 print(f"  {month}: {monthly_counts[month]} activations")
             
@@ -453,9 +453,24 @@ class Api:
             traceback.print_exc()
             return None
     
-    def _calculate_weekly_trips(self, qme_results, viajante_results, fluxo='', cod_sap='', origem='', destino='', veiculo='', trip=''):
+    def _normalize_veiculo(self, veiculo):
+        """Normalizes vehicle names so TDC and Tarifa tables can be matched"""
+        if not veiculo:
+            return ''
+        v = str(veiculo).strip().upper()
+        if 'BITREM' in v:             return 'BITREM'
+        if 'VANDERLEIA' in v:         return 'VANDERLEIA'
+        if 'CARRETA' in v:            return 'CARRETA'
+        if 'VAN' in v or 'DUCATO' in v: return 'VAN'
+        if '3/4' in v or '0.75' in v: return '3/4'
+        if 'TOCO' in v:               return 'TOCO'
+        if 'TRUCK' in v:              return 'TRUCK'
+        if 'FIORINO' in v:            return 'FIORINO'
+        return v
+
+    def _calculate_weekly_trips(self, qme_results, viajante_results, fluxo='', cod_sap='', origem='', destino='', veiculo='', trip='', km=None):
         """
-        Calcula quantidade de viagens semanais (TO BE e AS IS)
+        Calcula quantidade de viagens semanais (TO BE e AS IS) e frete
         
         TO BE Formula: Volume m³ TO BE / CAP. ÚTIL (m³)
         
@@ -472,9 +487,10 @@ class Api:
             destino: Cidade destino (para filtrar TDC)
             veiculo: Veículo selecionado (para filtrar TDC)
             trip: Trip selecionado (para filtrar TDC)
+            km: Distância em KM (extraída do TDC)
             
         Returns:
-            Dict com quantidade de viagens por mês (AS IS e TO BE)
+            Dict com quantidade de viagens por mês (AS IS e TO BE) e dados de frete
         """
         try:
             # Extract monthly volumes from QME
@@ -610,10 +626,96 @@ class Api:
                 print(f"  {month}: {month_capacity.get(month, 0):.2f} m³")
             print(f"{'='*60}\n")
             
+            # =====================================================
+            # FREIGHT (TARIFA) CALCULATION
+            # =====================================================
+            freight_result = None
+            normalized_veiculo = self._normalize_veiculo(veiculo)
+            
+            print(f"\n{'='*60}")
+            print("FREIGHT CALCULATION (TARIFA)")
+            print(f"{'='*60}")
+            print(f"  Fluxo (from form):           '{fluxo}'")
+            print(f"  Veiculo (from form):          '{veiculo}'")
+            print(f"  Veiculo (normalized):         '{normalized_veiculo}'")
+            print(f"  Origem (from form):           '{origem}'")
+            print(f"  Destino (from form):          '{destino}'")
+            print(f"  KM (from TDC):                {km}")
+            print(f"  Trip (from form):             '{trip}'")
+            print(f"  Available fluxos in Tarifa:   {self.sap_lookup.get_available_fluxos()}")
+            
+            if km and km > 0:
+                # Find the best matching fluxo name in Tarifa data
+                available_fluxos = self.sap_lookup.get_available_fluxos()
+                matched_fluxo = None
+                
+                # Try to match the TDC fluxo value against Tarifa folder names
+                for tf in available_fluxos:
+                    if str(fluxo).lower() in tf.lower() or tf.lower() in str(fluxo).lower():
+                        matched_fluxo = tf
+                        break
+                
+                print(f"  Matched Tarifa fluxo folder: '{matched_fluxo}'")
+                
+                if matched_fluxo:
+                    # Determine trip type for Tarifa (RT/OW)
+                    trip_upper = str(trip).upper()
+                    if 'ROUND' in trip_upper or trip_upper == 'RT':
+                        viagem_code = 'RT'
+                    elif 'ONE WAY' in trip_upper or trip_upper == 'OW':
+                        viagem_code = 'OW'
+                    else:
+                        viagem_code = None  # Let tarifa_manager match what it finds
+                    
+                    print(f"  Viagem code for Tarifa:      '{viagem_code}'")
+                    
+                    freight_result = self.sap_lookup.calculate_tariff(
+                        fluxo_name=matched_fluxo,
+                        origem=origem,
+                        destino=destino,
+                        veiculo=normalized_veiculo,
+                        km_value=km,
+                        viagem=viagem_code
+                    )
+                    
+                    print(f"\n  Tarifa result status: '{freight_result.get('status')}'")
+                    if freight_result.get('status') == 'success':
+                        print(f"  Tarifa original:      R$ {freight_result.get('tarifa_original', 0):.2f}")
+                        print(f"  Tarifa real (@ {km}km): R$ {freight_result.get('tarifa_real', 0):.2f}")
+                        print(f"  Transportadora:       '{freight_result.get('transportadora')}'")
+                        print(f"  Veiculo (Tarifa):     '{freight_result.get('veiculo')}'")
+                        print(f"  Outras opções:        {len(freight_result.get('outras_opcoes', []))}")
+                    else:
+                        print(f"  Message: {freight_result.get('message', 'N/A')}")
+                else:
+                    print(f"  ⚠️  No Tarifa fluxo matched for '{fluxo}'")
+                    print(f"       Available: {available_fluxos}")
+                    freight_result = {'status': 'not_found', 'message': f"Fluxo '{fluxo}' not found in Tarifa data"}
+            else:
+                print(f"  ⚠️  KM not available — skipping freight calculation")
+                freight_result = {'status': 'no_km', 'message': 'KM not available from TDC lookup'}
+            
+            print(f"{'='*60}\n")
+            
+            # Compute monthly freight costs (tarifa_real × trips per month)
+            if freight_result and freight_result.get('status') == 'success':
+                tarifa_real = freight_result.get('tarifa_real', 0)
+                freight_result['monthly_freight_asis'] = {
+                    m: round((monthly_trips_asis.get(m, 0) or 0) * tarifa_real, 2) for m in months
+                }
+                freight_result['monthly_freight_tobe'] = {
+                    m: round((monthly_trips_tobe.get(m, 0) or 0) * tarifa_real, 2) for m in months
+                }
+                freight_result['monthly_freight_savings'] = {
+                    m: round(freight_result['monthly_freight_asis'][m] - freight_result['monthly_freight_tobe'][m], 2)
+                    for m in months
+                }
+            
             return {
                 'monthly_trips_tobe': monthly_trips_tobe,
                 'monthly_trips_asis': monthly_trips_asis,
-                'month_capacity': month_capacity
+                'month_capacity': month_capacity,
+                'freight': freight_result
             }
             
         except Exception as e:
@@ -666,6 +768,15 @@ class Api:
             fluxo = data.get('fluxo', '')
             trip = data.get('trip', '')
             
+            # Extract KM from last TDC lookup result (KM is a TDC column)
+            last_lookup = self.sap_lookup.get_last_lookup_result() or {}
+            km = last_lookup.get('KM', None)
+            if km is not None:
+                try:
+                    km = float(km)
+                except (ValueError, TypeError):
+                    km = None
+            
             print(f"\n{'='*60}")
             print("CALLING _calculate_weekly_trips WITH PARAMETERS:")
             print(f"{'='*60}")
@@ -675,6 +786,7 @@ class Api:
             print(f"  veiculo: '{veiculo}'")
             print(f"  fluxo: '{fluxo}'")
             print(f"  trip: '{trip}'")
+            print(f"  km (from TDC): '{km}'")
             print(f"{'='*60}\n")
             
             trip_data = self._calculate_weekly_trips(
@@ -685,7 +797,8 @@ class Api:
                 origem=origem,
                 destino=destino,
                 veiculo=veiculo,
-                trip=trip
+                trip=trip,
+                km=km
             )
             if trip_data:
                 result['weekly_trips'] = trip_data

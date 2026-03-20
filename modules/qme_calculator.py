@@ -115,14 +115,14 @@ class QMECalculator:
         # Find intersection: PNs that exist in BOTH PFEP and NPRC
         matched_pns = pfep_pn_set.intersection(nprc_pn_set)
         
-        print(f"\n{'='*60}")
-        print(f"PFEP + NPRC INTERSECTION")
-        print(f"{'='*60}")
-        print(f"PNs in PFEP (filtered by SAP): {len(pfep_pn_set)}")
-        print(f"PNs in NPRC (aggregated): {len(nprc_pn_set)}")
-        print(f"PNs in BOTH (intersection): {len(matched_pns)}")
-        print(f"Sample matched PNs: {list(matched_pns)[:10]}")
-        print(f"{'='*60}\n")
+        # print(f"\n{'='*60}")
+        # print(f"PFEP + NPRC INTERSECTION")
+        # print(f"{'='*60}")
+        # print(f"PNs in PFEP (filtered by SAP): {len(pfep_pn_set)}")
+        # print(f"PNs in NPRC (aggregated): {len(nprc_pn_set)}")
+        # print(f"PNs in BOTH (intersection): {len(matched_pns)}")
+        # print(f"Sample matched PNs: {list(matched_pns)[:10]}")
+        # print(f"{'='*60}\n")
         
         # STEP 3: Create propose file lookup for TO BE values
         propose_lookup = {}
@@ -143,11 +143,11 @@ class QMECalculator:
                 else:
                     propose_pns_not_in_dataset.append(pn)
             
-            print(f"Propose file analysis:")
-            print(f"  Total PNs in propose file: {len(propose_lookup)}")
-            print(f"  PNs found in PFEP+NPRC dataset: {len(propose_pns_in_dataset)} - {propose_pns_in_dataset}")
-            print(f"  PNs NOT in dataset: {len(propose_pns_not_in_dataset)} - {propose_pns_not_in_dataset}")
-            print()
+            # print(f"Propose file analysis:")
+            # print(f"  Total PNs in propose file: {len(propose_lookup)}")
+            # print(f"  PNs found in PFEP+NPRC dataset: {len(propose_pns_in_dataset)} - {propose_pns_in_dataset}")
+            # print(f"  PNs NOT in dataset: {len(propose_pns_not_in_dataset)} - {propose_pns_not_in_dataset}")
+            # print()
 
         # STEP 3: Process ALL matched PNs (PFEP + NPRC intersection)
         results = []
