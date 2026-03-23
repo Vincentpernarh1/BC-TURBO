@@ -83,6 +83,14 @@
                         <label>Cidade Destino</label>
                         <input title="destino" type="text" id="destino" disabled class="disabled-input">
                     </div>
+                    <div class="form-group">
+                        <label>%RT</label>
+                        <input title="rt_percent" type="number" id="rt_percent" value="100" min="0" max="100" disabled class="disabled-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Pedágio (R$)</label>
+                        <input title="pedagio" type="number" id="pedagio" placeholder="0.00" min="0" step="0.01" disabled class="disabled-input">
+                    </div>
                 </div>
 
                 <!-- Second Row: Auto-populated Fields -->
@@ -382,39 +390,14 @@
                             </table>
                         </div>
 
-                        <!-- Aggregated Monthly Table (Summary) -->
-                        <div class="table-wrapper monthly-table-wrapper">
-                            <h4 class="section-header">📈 Resumo - Comparativo</h4>
-                            <table id="dashboard-monthly-table" class="monthly-table">
-                                <thead>
-                                    <tr>
-                                        <th class="th-left">Cenário</th>
-                                        <th class="th-center">Jan</th>
-                                        <th class="th-center">Fev</th>
-                                        <th class="th-center">Mar</th>
-                                        <th class="th-center">Abr</th>
-                                        <th class="th-center">Mai</th>
-                                        <th class="th-center">Jun</th>
-                                        <th class="th-center">Jul</th>
-                                        <th class="th-center">Ago</th>
-                                        <th class="th-center">Set</th>
-                                        <th class="th-center">Out</th>
-                                        <th class="th-center">Nov</th>
-                                        <th class="th-center">Dez</th>
-                                        <th class="th-center th-total-anual">Total Anual</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dashboard-monthly-body">
-                                    <!-- Monthly aggregations will be inserted here -->
-                                </tbody>
-                            </table>
-                        </div>
-
                         <!-- Toggle Button for Detailed View -->
                         <div class="toggle-button-container">
                             <button class="submit-btn" onclick="toggleDetailedView()" id="toggle-details-btn">
                                 🔽 Mostrar Detalhes por PN
                             </button>
+                             <button class="submit-btn submit-btn-spacing" onclick="exportResults()">
+                            📊 Exportar Breakdown Detalhado
+                             </button>
                         </div>
                         
                         <!-- Detailed Results Table (Initially Hidden) -->
@@ -504,9 +487,6 @@
                             </div>
                         </div>
                         
-                        <button class="submit-btn submit-btn-spacing" onclick="exportResults()">
-                            📊 Exportar Breakdown Detalhado
-                        </button>
                         <div class="clearfix"></div>
                     </div>
                     

@@ -468,7 +468,7 @@ class Api:
         if 'FIORINO' in v:            return 'FIORINO'
         return v
 
-    def _calculate_weekly_trips(self, qme_results, viajante_results, fluxo='', cod_sap='', origem='', destino='', veiculo='', trip='', km=None):
+    def _calculate_weekly_trips(self, qme_results, viajante_results, fluxo='', cod_sap='', origem='', destino='', veiculo='', trip='', km=None, rt_percent=100, pedagio=0):
         """
         Calcula quantidade de viagens semanais (TO BE e AS IS) e frete
         
@@ -697,20 +697,46 @@ class Api:
             
             print(f"{'='*60}\n")
             
-            # Compute monthly freight costs (tarifa_real × trips per month)
+            # Determine RT/OW multiplier based on trip type and user-entered %RT
+            trip_upper = str(trip).upper()
+            if 'ROUND' in trip_upper or trip_upper == 'RT':
+                rt_multiplier = float(rt_percent) / 100.0
+            elif 'ONE WAY' in trip_upper or trip_upper == 'OW':
+                rt_multiplier = (100.0 - float(rt_percent)) / 100.0
+            else:
+                rt_multiplier = 1.0  # no modification if trip type unknown
+
+            print(f"\n  RT% multiplier: trip='{trip}', rt_percent={rt_percent} -> multiplier={rt_multiplier:.2f}")
+
+            # Compute monthly freight costs (tarifa_real × trips × RT multiplier)
             if freight_result and freight_result.get('status') == 'success':
                 tarifa_real = freight_result.get('tarifa_real', 0)
                 freight_result['monthly_freight_asis'] = {
-                    m: round((monthly_trips_asis.get(m, 0) or 0) * tarifa_real, 2) for m in months
+                    m: round((monthly_trips_asis.get(m, 0) or 0) * tarifa_real * rt_multiplier, 2) for m in months
                 }
                 freight_result['monthly_freight_tobe'] = {
-                    m: round((monthly_trips_tobe.get(m, 0) or 0) * tarifa_real, 2) for m in months
+                    m: round((monthly_trips_tobe.get(m, 0) or 0) * tarifa_real * rt_multiplier, 2) for m in months
                 }
                 freight_result['monthly_freight_savings'] = {
                     m: round(freight_result['monthly_freight_asis'][m] - freight_result['monthly_freight_tobe'][m], 2)
                     for m in months
                 }
-            
+                freight_result['rt_multiplier'] = rt_multiplier
+                freight_result['rt_percent'] = rt_percent
+
+            # Always compute pedagio costs (trips × pedagio per trip)
+            monthly_pedagio_asis = {
+                m: round((monthly_trips_asis.get(m, 0) or 0) * float(pedagio), 2) for m in months
+            }
+            monthly_pedagio_tobe = {
+                m: round((monthly_trips_tobe.get(m, 0) or 0) * float(pedagio), 2) for m in months
+            }
+            if freight_result is None:
+                freight_result = {}
+            freight_result['monthly_pedagio_asis'] = monthly_pedagio_asis
+            freight_result['monthly_pedagio_tobe'] = monthly_pedagio_tobe
+            freight_result['pedagio_per_trip'] = float(pedagio)
+
             return {
                 'monthly_trips_tobe': monthly_trips_tobe,
                 'monthly_trips_asis': monthly_trips_asis,
@@ -789,6 +815,9 @@ class Api:
             print(f"  km (from TDC): '{km}'")
             print(f"{'='*60}\n")
             
+            rt_percent = float(data.get('rt_percent', 100))
+            pedagio = float(data.get('pedagio', 0))
+
             trip_data = self._calculate_weekly_trips(
                 result, 
                 self.viajante_results,
@@ -798,7 +827,9 @@ class Api:
                 destino=destino,
                 veiculo=veiculo,
                 trip=trip,
-                km=km
+                km=km,
+                rt_percent=rt_percent,
+                pedagio=pedagio
             )
             if trip_data:
                 result['weekly_trips'] = trip_data

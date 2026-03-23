@@ -199,10 +199,10 @@ body {
     margin-bottom: 15px;
 }
 
-/* First Row: 5 columns - Project info */
+/* First Row: 7 columns - Project info + RT% + Pedágio */
 .input-grid-row1 {
     display: grid;
-    grid-template-columns: 1fr 1fr 0.8fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 0.8fr 1fr 1fr 0.5fr 0.8fr;
     gap: 15px;
     margin-bottom: 15px;
 }
@@ -1021,10 +1021,12 @@ table td, table th {
     font-size: 0.9rem;
 }
 
-.toggle-button-container {
+.toggle-button-container {  
+    display: flex;
+    justify-content: space-between;
     text-align: center;
-    margin: 30px 0;
-    padding: 20px 0;
+    margin: 5px 50px;
+    padding: 2px 2px;
 }
 
 .hidden-section {

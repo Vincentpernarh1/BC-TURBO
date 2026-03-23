@@ -521,7 +521,7 @@ class SAPLookup:
                     if 'PN' in self.nprc_data.columns:
                         # Mostra sample de PNs no NPRC para comparação
                         nprc_pns_sample = self.nprc_data['PN'].astype(str).str.strip().unique().tolist()[:10]
-                        print(f"  Sample PNs in NPRC database: {nprc_pns_sample}")
+                        # print(f"  Sample PNs in NPRC database: {nprc_pns_sample}")
                         
                         # Filtra NPRC pelos PNs encontrados
                         nprc_mask = self.nprc_data['PN'].astype(str).str.strip().isin(related_pns)
@@ -577,7 +577,7 @@ class SAPLookup:
                     )
                     tdc_match = self.tdc_data[mask]
                     
-                    print(f"TDC lookup for Origem={cod_ims_for_tdc} AND Destino={cod_ims_destino}: found {len(tdc_match)} matches")
+                    # print(f"TDC lookup for Origem={cod_ims_for_tdc} AND Destino={cod_ims_destino}: found {len(tdc_match)} matches")
                     
                     if not tdc_match.empty:
                         # Retorna a primeira linha como resultado padrão

@@ -411,7 +411,7 @@ function isDatabaseSelected() {
 }
 
 function enableQMEInputs() {
-    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip'];
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip', 'rt_percent', 'pedagio'];
     inputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
@@ -424,7 +424,7 @@ function enableQMEInputs() {
 }
 
 function disableQMEInputs() {
-    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip'];
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip', 'rt_percent', 'pedagio'];
     inputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
@@ -470,7 +470,9 @@ async function runSimulation() {
         transportadora: document.getElementById('transportadora').value,
         veiculo: document.getElementById('veiculo').value,
         trip: document.getElementById('trip').value,
-        qme_tobe: document.getElementById('qme_tobe').value
+        qme_tobe: document.getElementById('qme_tobe').value,
+        rt_percent: parseFloat(document.getElementById('rt_percent').value) || 100,
+        pedagio: parseFloat(document.getElementById('pedagio').value) || 0
     };
 
     // Validate required fields
@@ -699,38 +701,38 @@ function displayResults(response) {
         custoSemanalRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total">R$ -</td>';
         breakdownCombinedBody.appendChild(custoSemanalRow);
 
-        // Pedágio row (placeholder — to be filled from Tarifa data)
+        // Pedágio row — single column per month (no AS IS / TO BE split)
         const pedagioRow = document.createElement('tr');
         pedagioRow.innerHTML = `<td class="td-label">Pedágio</td>`;
         months.forEach(() => {
-            pedagioRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
+            pedagioRow.innerHTML += '<td class="td-breakdown-as" colspan="2">R$ -</td>';
         });
-        pedagioRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total">R$ -</td>';
+        pedagioRow.innerHTML += '<td class="td-breakdown-total" colspan="2">R$ -</td>';
         breakdownCombinedBody.appendChild(pedagioRow);
         
-        // Economia mensal de frete row (AS IS cost − TO BE cost)
+        // Economia mensal de frete row — single column per month (savings = AS IS − TO BE)
         const custoTotalRow = document.createElement('tr');
         custoTotalRow.innerHTML = `<td class="td-label">Economia Mensal de Frete</td>`;
-        months.forEach(month => {
-            custoTotalRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to"></td>';
+        months.forEach(() => {
+            custoTotalRow.innerHTML += '<td class="td-breakdown-as" colspan="2">R$ -</td>';
         });
-        custoTotalRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total"></td>';
+        custoTotalRow.innerHTML += '<td class="td-breakdown-total" colspan="2">R$ -</td>';
         breakdownCombinedBody.appendChild(custoTotalRow);
         
-        // TOTAL SEMANAL row
+        // TOTAL SEMANAL row — single column per month (Frete TO BE + Pedágio TO BE)
         const totalSemanalRow = document.createElement('tr');
         totalSemanalRow.innerHTML = '<td class="td-label-bold">TOTAL SEMANAL</td>';
-        months.forEach(month => {
-            totalSemanalRow.innerHTML += '<td class="td-breakdown-as-bold">R$ -</td><td class="td-breakdown-to-bold">R$ -</td>';
+        months.forEach(() => {
+            totalSemanalRow.innerHTML += '<td class="td-breakdown-total-bold" colspan="2">R$ -</td>';
         });
         totalSemanalRow.innerHTML += '<td class="td-breakdown-total-bold" colspan="2">R$ -</td>';
         breakdownCombinedBody.appendChild(totalSemanalRow);
         
-        // TOTAL MENSAL row
+        // TOTAL MENSAL row — single column per month (TOTAL SEMANAL × 4)
         const totalMensalRow = document.createElement('tr');
         totalMensalRow.innerHTML = '<td class="td-label-bold">TOTAL MENSAL</td>';
-        months.forEach(month => {
-            totalMensalRow.innerHTML += '<td class="td-breakdown-as-bold">R$ -</td><td class="td-breakdown-to-bold">R$ -</td>';
+        months.forEach(() => {
+            totalMensalRow.innerHTML += '<td class="td-breakdown-total-bold" colspan="2">R$ -</td>';
         });
         totalMensalRow.innerHTML += '<td class="td-breakdown-total-bold" colspan="2">R$ -</td>';
         breakdownCombinedBody.appendChild(totalMensalRow);
@@ -1151,25 +1153,53 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
                 }
             }
             
-            // Row 3 — Pedágio: placeholder, skip for now (will be filled when data is available)
-            
-            // Row 4 — Economia Mensal de Frete = AS IS cost − TO BE cost
+            // Row 3 — Pedágio: single cell per month (colspan=2), show TO BE pedagio
+            const pedagioTobe = freight.monthly_pedagio_tobe || {};
+            if (rows.length >= 4) {
+                const pCells = rows[3].getElementsByTagName('td');
+                let totalPedagio = 0;
+                monthKeys.forEach((month, idx) => {
+                    const val = pedagioTobe[month] || 0;
+                    totalPedagio += val;
+                    if (idx + 1 < pCells.length) pCells[idx + 1].textContent = fmt(val);
+                });
+                if (pCells.length >= 14) pCells[13].textContent = fmt(totalPedagio);
+            }
+
+            // Row 4 — Economia Mensal de Frete: single cell per month (AS IS − TO BE)
             if (rows.length >= 5) {
                 const ctCells = rows[4].getElementsByTagName('td');
                 let totalSaving = 0;
-                let ci = 1;
-                monthKeys.forEach(month => {
+                monthKeys.forEach((month, idx) => {
                     const saving = (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0);
                     totalSaving += saving;
-                    // Span both AS IS and TO BE columns with the saving value
-                    if (ci < ctCells.length) ctCells[ci].textContent = fmt(saving);
-                    if (ci + 1 < ctCells.length) ctCells[ci + 1].textContent = '';
-                    ci += 2;
+                    if (idx + 1 < ctCells.length) ctCells[idx + 1].textContent = fmt(saving);
                 });
-                if (ctCells.length >= 2) {
-                    ctCells[ctCells.length - 2].textContent = fmt(totalSaving);
-                    ctCells[ctCells.length - 1].textContent = '';
-                }
+                if (ctCells.length >= 14) ctCells[13].textContent = fmt(totalSaving);
+            }
+
+            // Row 5 — TOTAL SEMANAL = Frete TO BE + Pedágio TO BE (single cell per month)
+            if (rows.length >= 6) {
+                const tsCells = rows[5].getElementsByTagName('td');
+                let totalSemanal = 0;
+                monthKeys.forEach((month, idx) => {
+                    const val = (monthlyFreightTobe[month] || 0) + (pedagioTobe[month] || 0);
+                    totalSemanal += val;
+                    if (idx + 1 < tsCells.length) tsCells[idx + 1].textContent = fmt(val);
+                });
+                if (tsCells.length >= 14) tsCells[13].textContent = fmt(totalSemanal);
+            }
+
+            // Row 6 — TOTAL MENSAL = TOTAL SEMANAL × 4 (single cell per month)
+            if (rows.length >= 7) {
+                const tmCells = rows[6].getElementsByTagName('td');
+                let totalMensal = 0;
+                monthKeys.forEach((month, idx) => {
+                    const val = ((monthlyFreightTobe[month] || 0) + (pedagioTobe[month] || 0)) * 4;
+                    totalMensal += val;
+                    if (idx + 1 < tmCells.length) tmCells[idx + 1].textContent = fmt(val);
+                });
+                if (tmCells.length >= 14) tmCells[13].textContent = fmt(totalMensal);
             }
             
             // Update savings row in monthly summary table
@@ -1189,7 +1219,15 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
                     if (sCells.length > 0) sCells[sCells.length - 1].textContent = fmt(totalSaving);
                 }
             }
-            
+
+            // Update "Economia 12 Meses" summary card with the real freight saving total
+            const savingsCard = document.getElementById('dashboard-summary-savings');
+            if (savingsCard) {
+                const annualSaving = monthKeys.reduce((sum, month) =>
+                    sum + (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0), 0);
+                savingsCard.innerText = annualSaving.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
             console.log('✅ Freight costs updated in breakdown table');
         }
         
