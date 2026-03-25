@@ -79,7 +79,7 @@ class Api:
 
     def lookup_sap_data(self, cod_sap, planta, cidade_origem, cidade_destino):
         """Busca dados complementares baseado no SAP e outros inputs"""
-        return self.sap_lookup.lookup_data(cod_sap, planta, cidade_origem, cidade_destino)
+        return clean_nan_values(self.sap_lookup.lookup_data(cod_sap, planta, cidade_origem, cidade_destino))
     
     def prepare_viajante_data(self, cod_sap, cidade_destino=None, veiculo=None):
         """
@@ -547,7 +547,7 @@ class Api:
                 volume_tobe = monthly_m3_tobe.get(month, 0)
                 capacity    = month_capacity.get(month, 0)
                 if capacity > 0 and volume_tobe > 0:
-                    monthly_trips_tobe[month] = int(round(volume_tobe / capacity, 0))
+                    monthly_trips_tobe[month] = round(volume_tobe / capacity, 2) if is_ml_lh else int(round(volume_tobe / capacity, 0))
                 else:
                     monthly_trips_tobe[month] = 0
 
@@ -562,10 +562,10 @@ class Api:
                     volume_asis = monthly_m3_asis.get(month, 0)
                     capacity    = month_capacity.get(month, 0)
                     if capacity > 0 and volume_asis > 0:
-                        monthly_trips_asis[month] = int(round(volume_asis / capacity, 0))
+                        monthly_trips_asis[month] = round(volume_asis / capacity, 2)
                     else:
                         monthly_trips_asis[month] = 0
-                    print(f"  {month}: {volume_asis:.2f} m³ / {capacity:.2f} m³ = {monthly_trips_asis[month]} viagens")
+                    print(f"  {month}: {volume_asis:.2f} m³ / {capacity:.2f} m³ = {monthly_trips_asis[month]:.2f} viagens")
                 print(f"{'='*60}\n")
             else:
                 # Method 2: Count unique TDC activations and convert to weekly

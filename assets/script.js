@@ -1163,12 +1163,13 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
         // Update cells: skip first cell (label), then pairs of AS IS / TO BE for each month
         let cellIndex = 1; // Start after label
         console.log('\n🔄 Updating cell values:');
+        const fmtTrips = (v) => v > 0 ? (Number.isInteger(v) ? v : v.toFixed(2)) : '-';
         
         monthKeys.forEach((monthKey, idx) => {
             // AS IS cell
             if (cellIndex < cells.length) {
                 const tripsAsis = monthlyTripsAsis[monthKey] || 0;
-                const displayValue = tripsAsis > 0 ? tripsAsis : '-';
+                const displayValue = fmtTrips(tripsAsis);
                 const oldValue = cells[cellIndex].textContent;
                 
                 console.log(`  Cell ${cellIndex} (${monthKey} AS IS): ${oldValue} → ${displayValue}`);
@@ -1181,7 +1182,7 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
             // TO BE cell
             if (cellIndex < cells.length) {
                 const tripsTobe = monthlyTripsTobe[monthKey] || 0;
-                const displayValue = tripsTobe > 0 ? tripsTobe : '-';
+                const displayValue = fmtTrips(tripsTobe);
                 const oldValue = cells[cellIndex].textContent;
                 
                 console.log(`  Cell ${cellIndex} (${monthKey} TO BE): ${oldValue} → ${displayValue}`);
@@ -1198,7 +1199,8 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
         
         if (cells.length >= 2) {
             // Second to last: AS IS total
-            const totalAsisDisplay = totalTripsAsis > 0 ? totalTripsAsis : '-';
+            const roundedAsisTotal = Math.round(totalTripsAsis * 100) / 100;
+            const totalAsisDisplay = fmtTrips(roundedAsisTotal);
             const asIsIndex = cells.length - 2;
             const oldAsIsValue = cells[asIsIndex].textContent;
             
@@ -1206,7 +1208,8 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
             cells[asIsIndex].textContent = totalAsisDisplay;
             
             // Last: TO BE total
-            const totalTobeDisplay = totalTripsTobe > 0 ? totalTripsTobe : '-';
+            const roundedTobeTotal = Math.round(totalTripsTobe * 100) / 100;
+            const totalTobeDisplay = fmtTrips(roundedTobeTotal);
             const toBeIndex = cells.length - 1;
             const oldToBeValue = cells[toBeIndex].textContent;
             
