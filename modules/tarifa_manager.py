@@ -843,14 +843,21 @@ class TarifaManager:
             # Calculate Tarifa_Real based on fluxo type
             if is_range_based:
                 if 'MILK RUN' in fluxo_name.upper():
-                    df_filtered['Tarifa_Real'] = km_value * df_filtered['Tarifa']
+                    if km_value and km_value > 0:
+                        df_filtered['Tarifa_Real'] = km_value * df_filtered['Tarifa']
+                    else:
+                        df_filtered['Tarifa_Real'] = df_filtered['Tarifa']  # no km → use base rate
                 elif 'SPOTS' in fluxo_name.upper() and 'Distancia' in df_filtered.columns:
-                    df_filtered['Tarifa_Real'] = (km_value * df_filtered['Tarifa']) / df_filtered['Distancia'].replace(0, float('nan'))
+                    if km_value and km_value > 0:
+                        df_filtered['Tarifa_Real'] = (km_value * df_filtered['Tarifa']) / df_filtered['Distancia'].replace(0, float('nan'))
+                    else:
+                        df_filtered['Tarifa_Real'] = df_filtered['Tarifa']
                 else:  # FAIXA — tarifa is already per trip
                     df_filtered['Tarifa_Real'] = df_filtered['Tarifa']
             else:
-                # Standard fluxo: Tarifa × KM / Distancia reference
-                if 'Distancia' in df_filtered.columns:
+                # Standard fluxo (e.g. Line Haul): Tarifa × KM / Distancia if km available,
+                # otherwise use base tarifa directly (fixed rates indexed by Origem/Destino)
+                if 'Distancia' in df_filtered.columns and km_value and km_value > 0:
                     df_filtered['Tarifa_Real'] = (km_value * df_filtered['Tarifa']) / df_filtered['Distancia'].replace(0, float('nan'))
                 else:
                     df_filtered['Tarifa_Real'] = df_filtered['Tarifa']
@@ -879,7 +886,7 @@ class TarifaManager:
                 'viagem': str(best.get('Viagem', 'N/A')),
                 'origem': str(best.get('Origem', 'N/A')),
                 'destino': str(best.get('Destino', 'N/A')),
-                'distancia_usada': float(km_value),
+                'distancia_usada': float(km_value) if km_value else 0,
                 'outras_opcoes': others
             }
         

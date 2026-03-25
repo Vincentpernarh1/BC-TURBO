@@ -497,84 +497,75 @@ class Api:
             summary = qme_results.get('summary', {})
             monthly_m3_tobe = summary.get('monthly_m3_tobe', {})
             monthly_m3_asis = summary.get('monthly_m3_asis', {})
-            
+
             if not monthly_m3_tobe:
                 print("Warning: No monthly TO BE data available for trip calculation")
                 return None
-            
-            # Extract CAP. ÚTIL from Viajante results
-            viajante_data = viajante_results.get('results', [])
-            
-            if not viajante_data:
-                print("Warning: No Viajante results available for trip calculation")
-                return None
-            
-            # Create a mapping of month to CAP. ÚTIL (m³)
-            # Viajante returns data per route/month with English abbreviations
+
+            months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+            # ── Detect mode FIRST (Milk Run / Line Haul do NOT need Viajante) ──
+            fluxo_lower = str(fluxo).lower()
+            is_ml_lh    = 'milk run' in fluxo_lower or 'line haul' in fluxo_lower
+            is_milk_run = 'milk run' in fluxo_lower
+            is_line_haul = 'line haul' in fluxo_lower
+
             month_capacity = {}
-            
-            # Map English month abbreviations (from Viajante) to Portuguese (from QME)
-            english_to_portuguese = {
-                'Jan': 'Jan',
-                'Feb': 'Fev',
-                'Mar': 'Mar',
-                'Apr': 'Abr',
-                'May': 'Mai',
-                'Jun': 'Jun',
-                'Jul': 'Jul',
-                'Aug': 'Ago',
-                'Sep': 'Set',
-                'Oct': 'Out',
-                'Nov': 'Nov',
-                'Dec': 'Dez'
-            }
-            
-            for row in viajante_data:
-                mes_english = row.get('Mês', '')  # English abbreviation from Viajante
-                mes_portuguese = english_to_portuguese.get(mes_english, mes_english)
-                cap_util = row.get('CAP. ÚTIL (m³)', 0)
-                
-                # Store the first capacity found for each month (should be consistent)
-                if mes_portuguese and mes_portuguese not in month_capacity and cap_util:
-                    month_capacity[mes_portuguese] = cap_util
-            
+
+            if is_ml_lh:
+                # Milk Run / Line Haul: constant 74 m³ — no Viajante needed
+                month_capacity = {month: 74.0 for month in months}
+                print(f"\n{'='*60}")
+                print(f"MILK RUN / LINE HAUL MODE — using constant 74 m³ capacity")
+                print(f"{'='*60}")
+            else:
+                # Standard mode: derive capacity from Viajante output
+                viajante_data = viajante_results.get('results', []) if viajante_results else []
+
+                if not viajante_data:
+                    print("Warning: No Viajante results available for trip calculation")
+                    return None
+
+                # Map English month abbreviations (from Viajante) to Portuguese (from QME)
+                english_to_portuguese = {
+                    'Jan': 'Jan', 'Feb': 'Fev', 'Mar': 'Mar', 'Apr': 'Abr',
+                    'May': 'Mai', 'Jun': 'Jun', 'Jul': 'Jul', 'Aug': 'Ago',
+                    'Sep': 'Set', 'Oct': 'Out', 'Nov': 'Nov', 'Dec': 'Dez'
+                }
+
+                for row in viajante_data:
+                    mes_english  = row.get('Mês', '')
+                    mes_portuguese = english_to_portuguese.get(mes_english, mes_english)
+                    cap_util = row.get('CAP. ÚTIL (m³)', 0)
+                    if mes_portuguese and mes_portuguese not in month_capacity and cap_util:
+                        month_capacity[mes_portuguese] = cap_util
+
             # Calculate TO BE trips for each month
             monthly_trips_tobe = {}
-            months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
-                     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-            
             for month in months:
                 volume_tobe = monthly_m3_tobe.get(month, 0)
-                capacity = month_capacity.get(month, 0)
-                
+                capacity    = month_capacity.get(month, 0)
                 if capacity > 0 and volume_tobe > 0:
-                    trips = round(volume_tobe / capacity, 0)
-                    monthly_trips_tobe[month] = int(trips)
+                    monthly_trips_tobe[month] = int(round(volume_tobe / capacity, 0))
                 else:
                     monthly_trips_tobe[month] = 0
-            
+
             # Calculate AS IS trips based on FLUXO type
             monthly_trips_asis = {}
-            fluxo_lower = str(fluxo).lower()
-            
-            if 'milk run' in fluxo_lower or 'line haul' in fluxo_lower:
-                # Method 1: Calculate AS IS trips = AS IS Volume / CAP. ÚTIL
+
+            if is_ml_lh:
                 print(f"\n{'='*60}")
                 print(f"AS IS TRIPS CALCULATION - MILK RUN/LINE HAUL")
                 print(f"{'='*60}")
-                
                 for month in months:
                     volume_asis = monthly_m3_asis.get(month, 0)
-                    capacity = month_capacity.get(month, 0)
-                    
+                    capacity    = month_capacity.get(month, 0)
                     if capacity > 0 and volume_asis > 0:
-                        trips = round(volume_asis / capacity, 0)
-                        monthly_trips_asis[month] = int(trips)
+                        monthly_trips_asis[month] = int(round(volume_asis / capacity, 0))
                     else:
                         monthly_trips_asis[month] = 0
-                    
                     print(f"  {month}: {volume_asis:.2f} m³ / {capacity:.2f} m³ = {monthly_trips_asis[month]} viagens")
-                
                 print(f"{'='*60}\n")
             else:
                 # Method 2: Count unique TDC activations and convert to weekly
@@ -631,111 +622,148 @@ class Api:
             # =====================================================
             freight_result = None
             normalized_veiculo = self._normalize_veiculo(veiculo)
-            
+
+            # Tarifa routing params depend on mode:
+            #   Line Haul  → use full origem + destino
+            #   Milk Run   → leave origem/destino empty (match by km/veiculo only)
+            tarifa_origem  = '' if is_milk_run else origem
+            tarifa_destino = '' if is_milk_run else destino
+
             print(f"\n{'='*60}")
             print("FREIGHT CALCULATION (TARIFA)")
             print(f"{'='*60}")
             print(f"  Fluxo (from form):           '{fluxo}'")
             print(f"  Veiculo (from form):          '{veiculo}'")
             print(f"  Veiculo (normalized):         '{normalized_veiculo}'")
-            print(f"  Origem (from form):           '{origem}'")
-            print(f"  Destino (from form):          '{destino}'")
-            print(f"  KM (from TDC):                {km}")
+            print(f"  Origem (tarifa):              '{tarifa_origem}'")
+            print(f"  Destino (tarifa):             '{tarifa_destino}'")
+            print(f"  KM:                           {km}")
             print(f"  Trip (from form):             '{trip}'")
             print(f"  Available fluxos in Tarifa:   {self.sap_lookup.get_available_fluxos()}")
-            
-            if km and km > 0:
-                # Find the best matching fluxo name in Tarifa data
-                available_fluxos = self.sap_lookup.get_available_fluxos()
-                matched_fluxo = None
-                
-                # Try to match the TDC fluxo value against Tarifa folder names
-                for tf in available_fluxos:
-                    if str(fluxo).lower() in tf.lower() or tf.lower() in str(fluxo).lower():
-                        matched_fluxo = tf
-                        break
-                
-                print(f"  Matched Tarifa fluxo folder: '{matched_fluxo}'")
-                
-                if matched_fluxo:
-                    # Determine trip type for Tarifa (RT/OW)
-                    trip_upper = str(trip).upper()
-                    if 'ROUND' in trip_upper or trip_upper == 'RT':
-                        viagem_code = 'RT'
-                    elif 'ONE WAY' in trip_upper or trip_upper == 'OW':
-                        viagem_code = 'OW'
-                    else:
-                        viagem_code = None  # Let tarifa_manager match what it finds
-                    
-                    print(f"  Viagem code for Tarifa:      '{viagem_code}'")
-                    
-                    freight_result = self.sap_lookup.calculate_tariff(
+
+            # Always attempt tarifa lookup — KM is optional (Line Haul filters by Origem+Destino;
+            # Milk Run filters by KM range; pass km=None when not available)
+            available_fluxos = self.sap_lookup.get_available_fluxos()
+            matched_fluxo = None
+
+            # Try to match the TDC fluxo value against Tarifa folder names
+            for tf in available_fluxos:
+                if str(fluxo).lower() in tf.lower() or tf.lower() in str(fluxo).lower():
+                    matched_fluxo = tf
+                    break
+
+            print(f"  Matched Tarifa fluxo folder: '{matched_fluxo}'")
+
+            # RT / OW weights — computed once, used for both freight and pedagio
+            rt_pct = float(rt_percent)
+            ow_pct = 100.0 - rt_pct
+            rt_w   = rt_pct / 100.0   # e.g. 0.67
+            ow_w   = ow_pct / 100.0   # e.g. 0.33
+            print(f"  RT%={rt_pct:.1f}  OW%={ow_pct:.1f}")
+
+            if matched_fluxo:
+                print(f"  KM passed to Tarifa:         {km if km else 'None (optional)'}")
+
+                def _lookup(viagem_code):
+                    return self.sap_lookup.calculate_tariff(
                         fluxo_name=matched_fluxo,
-                        origem=origem,
-                        destino=destino,
+                        origem=tarifa_origem,
+                        destino=tarifa_destino,
                         veiculo=normalized_veiculo,
                         km_value=km,
                         viagem=viagem_code
                     )
-                    
-                    print(f"\n  Tarifa result status: '{freight_result.get('status')}'")
-                    if freight_result.get('status') == 'success':
-                        print(f"  Tarifa original:      R$ {freight_result.get('tarifa_original', 0):.2f}")
-                        print(f"  Tarifa real (@ {km}km): R$ {freight_result.get('tarifa_real', 0):.2f}")
-                        print(f"  Transportadora:       '{freight_result.get('transportadora')}'")
-                        print(f"  Veiculo (Tarifa):     '{freight_result.get('veiculo')}'")
-                        print(f"  Outras opções:        {len(freight_result.get('outras_opcoes', []))}")
-                    else:
-                        print(f"  Message: {freight_result.get('message', 'N/A')}")
+
+                # Always fetch RT tarifa
+                freight_rt = _lookup('RT')
+                status_rt = freight_rt.get('status')
+                print(f"  Tarifa RT: {status_rt}" + (f"  → R$ {freight_rt.get('tarifa_real', 0):.2f}" if status_rt == 'success' else f"  → {freight_rt.get('message', 'N/A')}"))
+
+                # Fetch OW tarifa when OW share > 0
+                freight_ow = _lookup('OW') if ow_pct > 0 else None
+                if freight_ow:
+                    status_ow = freight_ow.get('status')
+                    print(f"  Tarifa OW: {status_ow}" + (f"  → R$ {freight_ow.get('tarifa_real', 0):.2f}" if status_ow == 'success' else f"  → {freight_ow.get('message', 'N/A')}"))
+
+                # Merge into a single freight_result with weighted tarifa_real
+                if freight_rt.get('status') == 'success':
+                    tarifa_rt_real = freight_rt.get('tarifa_real', 0)
+                    tarifa_ow_real = (
+                        freight_ow.get('tarifa_real', tarifa_rt_real)
+                        if (freight_ow and freight_ow.get('status') == 'success')
+                        else tarifa_rt_real
+                    )
+                    weighted_tarifa = tarifa_rt_real * rt_w + tarifa_ow_real * ow_w
+                    print(f"  Weighted tarifa: {tarifa_rt_real:.2f}×{rt_w:.2f} + {tarifa_ow_real:.2f}×{ow_w:.2f} = R$ {weighted_tarifa:.2f}")
+
+                    freight_result = dict(freight_rt)
+                    freight_result['tarifa_real']    = weighted_tarifa
+                    freight_result['tarifa_rt_real'] = tarifa_rt_real
+                    freight_result['tarifa_ow_real'] = tarifa_ow_real
+                    freight_result['rt_weight']      = rt_w
+                    freight_result['ow_weight']      = ow_w
+                elif freight_ow and freight_ow.get('status') == 'success':
+                    tarifa_ow_real = freight_ow.get('tarifa_real', 0)
+                    weighted_tarifa = tarifa_ow_real * ow_w
+                    freight_result = dict(freight_ow)
+                    freight_result['tarifa_real'] = weighted_tarifa
                 else:
-                    print(f"  ⚠️  No Tarifa fluxo matched for '{fluxo}'")
-                    print(f"       Available: {available_fluxos}")
-                    freight_result = {'status': 'not_found', 'message': f"Fluxo '{fluxo}' not found in Tarifa data"}
+                    freight_result = freight_rt
             else:
-                print(f"  ⚠️  KM not available — skipping freight calculation")
-                freight_result = {'status': 'no_km', 'message': 'KM not available from TDC lookup'}
-            
+                print(f"  ⚠️  No Tarifa fluxo matched for '{fluxo}'")
+                print(f"       Available: {available_fluxos}")
+                freight_result = {'status': 'not_found', 'message': f"Fluxo '{fluxo}' not found in Tarifa data"}
+
             print(f"{'='*60}\n")
-            
-            # Determine RT/OW multiplier based on trip type and user-entered %RT
-            trip_upper = str(trip).upper()
-            if 'ROUND' in trip_upper or trip_upper == 'RT':
-                rt_multiplier = float(rt_percent) / 100.0
-            elif 'ONE WAY' in trip_upper or trip_upper == 'OW':
-                rt_multiplier = (100.0 - float(rt_percent)) / 100.0
-            else:
-                rt_multiplier = 1.0  # no modification if trip type unknown
 
-            print(f"\n  RT% multiplier: trip='{trip}', rt_percent={rt_percent} -> multiplier={rt_multiplier:.2f}")
-
-            # Compute monthly freight costs (tarifa_real × trips × RT multiplier)
+            # Monthly freight costs — trips applied per leg before summing:
+            #   cost = (trips × tarifa_RT × rt_w) + (trips × tarifa_OW × ow_w)
             if freight_result and freight_result.get('status') == 'success':
-                tarifa_real = freight_result.get('tarifa_real', 0)
+                t_rt = freight_result.get('tarifa_rt_real', freight_result.get('tarifa_real', 0))
+                t_ow = freight_result.get('tarifa_ow_real', t_rt)
                 freight_result['monthly_freight_asis'] = {
-                    m: round((monthly_trips_asis.get(m, 0) or 0) * tarifa_real * rt_multiplier, 2) for m in months
+                    m: round(
+                        (monthly_trips_asis.get(m, 0) or 0) * t_rt * rt_w +
+                        (monthly_trips_asis.get(m, 0) or 0) * t_ow * ow_w,
+                        2
+                    ) for m in months
                 }
                 freight_result['monthly_freight_tobe'] = {
-                    m: round((monthly_trips_tobe.get(m, 0) or 0) * tarifa_real * rt_multiplier, 2) for m in months
+                    m: round(
+                        (monthly_trips_tobe.get(m, 0) or 0) * t_rt * rt_w +
+                        (monthly_trips_tobe.get(m, 0) or 0) * t_ow * ow_w,
+                        2
+                    ) for m in months
                 }
                 freight_result['monthly_freight_savings'] = {
                     m: round(freight_result['monthly_freight_asis'][m] - freight_result['monthly_freight_tobe'][m], 2)
                     for m in months
                 }
-                freight_result['rt_multiplier'] = rt_multiplier
                 freight_result['rt_percent'] = rt_percent
 
-            # Always compute pedagio costs (trips × pedagio per trip)
+            # Pedagio — same per-leg pattern:
+            #   pedagio = (trips × pedagio_val × rt_w) + (trips × pedagio_val × ow_w)
+            pedagio_val = float(pedagio)
+            print(f"  Pedagio per trip: {pedagio_val:.2f} | RT×{rt_w:.2f} + OW×{ow_w:.2f}")
             monthly_pedagio_asis = {
-                m: round((monthly_trips_asis.get(m, 0) or 0) * float(pedagio), 2) for m in months
+                m: round(
+                    (monthly_trips_asis.get(m, 0) or 0) * pedagio_val * rt_w +
+                    (monthly_trips_asis.get(m, 0) or 0) * pedagio_val * ow_w,
+                    2
+                ) for m in months
             }
             monthly_pedagio_tobe = {
-                m: round((monthly_trips_tobe.get(m, 0) or 0) * float(pedagio), 2) for m in months
+                m: round(
+                    (monthly_trips_tobe.get(m, 0) or 0) * pedagio_val * rt_w +
+                    (monthly_trips_tobe.get(m, 0) or 0) * pedagio_val * ow_w,
+                    2
+                ) for m in months
             }
             if freight_result is None:
                 freight_result = {}
             freight_result['monthly_pedagio_asis'] = monthly_pedagio_asis
             freight_result['monthly_pedagio_tobe'] = monthly_pedagio_tobe
-            freight_result['pedagio_per_trip'] = float(pedagio)
+            freight_result['pedagio_per_trip'] = pedagio_val
 
             return {
                 'monthly_trips_tobe': monthly_trips_tobe,
@@ -784,17 +812,24 @@ class Api:
         # Passa tanto os dados do formulário quanto os dados PFEP, NPRC e MDR completos para o calculador
         result = self.qme_calculator.calculate(data, pfep_data, nprc_data, mdr_data)
         
-        # Calculate weekly trips if Viajante results are available
-        if result.get('status') == 'success' and self.viajante_results:
+        # Detect mode early to decide if Viajante is required
+        fluxo_qme  = data.get('fluxo', '')
+        fluxo_lower_qme = str(fluxo_qme).lower()
+        is_ml_lh_mode = 'milk run' in fluxo_lower_qme or 'line haul' in fluxo_lower_qme
+
+        # Calculate weekly trips:
+        #   - Standard mode: requires Viajante results
+        #   - ML/LH mode:    runs without Viajante (uses 74 m³ constant)
+        if result.get('status') == 'success' and (self.viajante_results or is_ml_lh_mode):
             # Extract user input parameters for TDC filtering
             cod_sap = data.get('cod_sap', '')
-            origem = data.get('origem', '')
+            origem  = data.get('origem', '')
             destino = data.get('destino', '')
             veiculo = data.get('veiculo', '')
-            fluxo = data.get('fluxo', '')
-            trip = data.get('trip', '')
-            
-            # Extract KM from last TDC lookup result (KM is a TDC column)
+            fluxo   = fluxo_qme
+            trip    = data.get('trip', '')
+
+            # KM: try TDC first, then fall back to manually entered km_manual
             last_lookup = self.sap_lookup.get_last_lookup_result() or {}
             km = last_lookup.get('KM', None)
             if km is not None:
@@ -802,7 +837,17 @@ class Api:
                     km = float(km)
                 except (ValueError, TypeError):
                     km = None
-            
+
+            # For ML/LH, TDC is never queried so km is always None — use km_manual
+            km_manual_raw = data.get('km_manual', None)
+            if km_manual_raw not in (None, '', 0, '0'):
+                try:
+                    km_manual = float(km_manual_raw)
+                    if km_manual > 0:
+                        km = km_manual  # km_manual overrides or fills the gap
+                except (ValueError, TypeError):
+                    pass
+
             print(f"\n{'='*60}")
             print("CALLING _calculate_weekly_trips WITH PARAMETERS:")
             print(f"{'='*60}")
@@ -812,15 +857,16 @@ class Api:
             print(f"  veiculo: '{veiculo}'")
             print(f"  fluxo: '{fluxo}'")
             print(f"  trip: '{trip}'")
-            print(f"  km (from TDC): '{km}'")
+            print(f"  km (resolved): '{km}'")
+            print(f"  is_ml_lh: {is_ml_lh_mode}")
             print(f"{'='*60}\n")
-            
+
             rt_percent = float(data.get('rt_percent', 100))
-            pedagio = float(data.get('pedagio', 0))
+            pedagio    = float(data.get('pedagio', 0))
 
             trip_data = self._calculate_weekly_trips(
-                result, 
-                self.viajante_results,
+                result,
+                self.viajante_results,  # may be None for ML/LH — handled inside
                 fluxo=fluxo,
                 cod_sap=cod_sap,
                 origem=origem,

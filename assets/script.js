@@ -129,7 +129,14 @@ function lookupSAPData() {
             }
             
             // Verifica se TDC precisa de destino IMS
-            if (response.tdc_needs_destino) {
+            if (response.is_milk_run_or_line_haul) {
+                // --- MODO MILK RUN / LINE HAUL ---
+                // Restaura transportadora para select (em caso de a última busca ter virado texto)
+                resetToStandardMode();
+                // Configura campos especiais
+                setMilkRunLineHaulMode(response.normalized_fluxo, response.tdc_options || {});
+                showToast(`✅ Fluxo ${response.normalized_fluxo} detectado — campos configurados automaticamente!`, 'success');
+            } else if (response.tdc_needs_destino) {
                 // Marca o campo destino como requerido (vermelho)
                 const destinoField = document.getElementById('destino');
                 destinoField.classList.add('required-field');
@@ -150,6 +157,9 @@ function lookupSAPData() {
                 const destinoField = document.getElementById('destino');
                 destinoField.classList.remove('required-field');
                 destinoField.placeholder = '';
+                
+                // Garante modo padrão (select visível) para fluxo não-ML/LH
+                resetToStandardMode();
                 
                 // Popula dropdowns TDC se temos opções
                 if (response.tdc_options) {
@@ -237,6 +247,78 @@ function populateTDCDropdowns(options, data) {
             }
             tripSelect.appendChild(opt);
         });
+    }
+}
+
+function setMilkRunLineHaulMode(normalizedFluxo, options) {
+    /**
+     * Configura o formulário para modo Milk Run / Line Haul:
+     *  - Transportadora vira campo de texto livre (não há opções no TDC)
+     *  - Veículo = "Carreta" (constante, desabilitado)
+     *  - Fluxo = dropdown com "Milk Run" / "Line Haul", pré-selecionado
+     *  - Trip = dropdown com "Round Trip (RT)" / "One Way (OW)"
+     */
+    // --- Transportadora: esconde select, mostra input de texto ---
+    const transportadoraSelect = document.getElementById('transportadora');
+    const transportadoraText   = document.getElementById('transportadora-text');
+    if (transportadoraSelect && transportadoraText) {
+        transportadoraSelect.style.display = 'none';
+        transportadoraText.style.display   = '';
+        transportadoraText.disabled = false;
+        transportadoraText.classList.remove('disabled-input');
+        transportadoraText.value = '';
+    }
+
+    // --- Veículo: fixo em "Carreta", desabilitado ---
+    const veiculoSelect = document.getElementById('veiculo');
+    if (veiculoSelect) {
+        veiculoSelect.innerHTML = '<option value="Carreta">Carreta</option>';
+        veiculoSelect.value = 'Carreta';
+        veiculoSelect.disabled = true;
+        veiculoSelect.classList.add('disabled-input');
+    }
+
+    // --- Fluxo: opções fixas, pré-seleciona o fluxo do PFEP ---
+    const fluxoSelect = document.getElementById('fluxo');
+    if (fluxoSelect) {
+        fluxoSelect.innerHTML = '<option value="">Selecione...</option>';
+        (options.Fluxo || ['Milk Run', 'Line Haul']).forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt;
+            el.textContent = opt;
+            if (opt === normalizedFluxo) el.selected = true;
+            fluxoSelect.appendChild(el);
+        });
+        fluxoSelect.disabled = false;
+        fluxoSelect.classList.remove('disabled-input');
+    }
+
+    // --- Trip: opções fixas ---
+    const tripSelect = document.getElementById('trip');
+    if (tripSelect) {
+        tripSelect.innerHTML = '<option value="">Selecione...</option>';
+        (options.Trip || ['Round Trip', 'One Way']).forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt;
+            el.textContent = opt;
+            tripSelect.appendChild(el);
+        });
+        tripSelect.disabled = false;
+        tripSelect.classList.remove('disabled-input');
+    }
+}
+
+function resetToStandardMode() {
+    /**
+     * Restaura campos para o modo padrão (TDC-driven) quando o fluxo
+     * não é Milk Run nem Line Haul.
+     */
+    const transportadoraSelect = document.getElementById('transportadora');
+    const transportadoraText   = document.getElementById('transportadora-text');
+    if (transportadoraSelect && transportadoraText) {
+        transportadoraSelect.style.display = '';
+        transportadoraText.style.display   = 'none';
+        transportadoraText.value = '';
     }
 }
 
@@ -411,7 +493,7 @@ function isDatabaseSelected() {
 }
 
 function enableQMEInputs() {
-    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip', 'rt_percent', 'pedagio'];
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip', 'rt_percent', 'pedagio', 'km_manual'];
     inputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
@@ -424,7 +506,7 @@ function enableQMEInputs() {
 }
 
 function disableQMEInputs() {
-    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip', 'rt_percent', 'pedagio'];
+    const inputs = ['cod_projeto', 'cod_sap', 'planta', 'origem', 'destino', 'trip', 'rt_percent', 'pedagio', 'km_manual'];
     inputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
@@ -459,6 +541,12 @@ function hideDBWarning() {
 
 async function runSimulation() {
     // Gather inputs from the QME form
+    const transportadoraText   = document.getElementById('transportadora-text');
+    const transportadoraSelect = document.getElementById('transportadora');
+    const transportadoraValue  = (transportadoraText && transportadoraText.style.display !== 'none')
+        ? transportadoraText.value
+        : (transportadoraSelect ? transportadoraSelect.value : '');
+
     const data = {
         cod_projeto: document.getElementById('cod_projeto').value,
         cod_sap: document.getElementById('cod_sap').value,
@@ -467,12 +555,13 @@ async function runSimulation() {
         origem: document.getElementById('origem').value,
         destino: document.getElementById('destino').value,
         fluxo: document.getElementById('fluxo').value,
-        transportadora: document.getElementById('transportadora').value,
+        transportadora: transportadoraValue,
         veiculo: document.getElementById('veiculo').value,
         trip: document.getElementById('trip').value,
         qme_tobe: document.getElementById('qme_tobe').value,
         rt_percent: parseFloat(document.getElementById('rt_percent').value) || 100,
-        pedagio: parseFloat(document.getElementById('pedagio').value) || 0
+        pedagio: parseFloat(document.getElementById('pedagio').value) || 0,
+        km_manual: parseFloat(document.getElementById('km_manual').value) || 0
     };
 
     // Validate required fields
@@ -486,66 +575,72 @@ async function runSimulation() {
         return;
     }
 
+    // Detect Milk Run / Line Haul mode — Viajante is not needed in this mode
+    const fluxoValue = data.fluxo ? data.fluxo.toLowerCase() : '';
+    const isMilkRunOrLineHaul = fluxoValue.includes('milk run') || fluxoValue.includes('line haul');
+
     try {
-        // Show loading indicator
-        showToast('⏳ Preparando dados de demanda...', 'info');
-        
-        // Step 1: Prepare Viajante demand file FIRST
-        console.log('\n📊 Step 1: Preparing Viajante demand file...');
-        const prepareResponse = await prepareViajanteData(data.cod_sap, data.destino);
-        
-        if (prepareResponse && prepareResponse.status === 'error') {
-            showToast('❌ Erro ao preparar demanda: ' + prepareResponse.message, 'error');
-            return;
+        let viajanteResponse = null;
+
+        if (isMilkRunOrLineHaul) {
+            // ── ML/LH MODE: skip Viajante entirely ──
+            console.log(`\n🚛 ${data.fluxo} mode detected — skipping Viajante processing`);
+            showToast(`⏳ Modo ${data.fluxo}: calculando sem Viajante...`, 'info');
+        } else {
+            // ── STANDARD MODE: prepare demand + run Viajante ──
+            showToast('⏳ Preparando dados de demanda...', 'info');
+
+            // Step 1: Prepare Viajante demand file
+            console.log('\n📊 Step 1: Preparing Viajante demand file...');
+            const prepareResponse = await prepareViajanteData(data.cod_sap, data.destino);
+
+            if (prepareResponse && prepareResponse.status === 'error') {
+                showToast('❌ Erro ao preparar demanda: ' + prepareResponse.message, 'error');
+                return;
+            }
+
+            // Step 2: Run Viajante processing
+            console.log('\n🚚 Step 2: Running Viajante processing...');
+            showToast('⏳ Processando Viajante...', 'info');
+
+            viajanteResponse = await window.pywebview.api.run_viajante(data.cod_sap);
+
+            if (viajanteResponse.status !== 'success') {
+                console.error('❌ Error running Viajante:', viajanteResponse.message);
+                showToast('❌ Erro Viajante: ' + viajanteResponse.message, 'error');
+                return;
+            }
+
+            console.log('✅ Viajante processing completed successfully');
+            console.log(`   Results: ${viajanteResponse.total_rows} rows`);
+            showToast('✅ Viajante processado com sucesso!', 'success');
         }
-        
-        // Step 2: Run Viajante processing
-        console.log('\n🚚 Step 2: Running Viajante processing...');
-        showToast('⏳ Processando Viajante...', 'info');
-        
-        const viajanteResponse = await window.pywebview.api.run_viajante(data.cod_sap);
-        
-        if (viajanteResponse.status !== 'success') {
-            console.error('❌ Error running Viajante:', viajanteResponse.message);
-            showToast('❌ Erro Viajante: ' + viajanteResponse.message, 'error');
-            return;
-        }
-        
-        console.log('✅ Viajante processing completed successfully');
-        console.log(`   Results: ${viajanteResponse.total_rows} rows`);
-        showToast('✅ Viajante processado com sucesso!', 'success');
-        
-        // Step 3: Calculate QME (now Viajante results are available for trip calculation)
-        console.log('\n📊 Step 3: Calculating QME with Viajante results...');
-        console.log('Data being sent to calculate_qme:', {
-            cod_sap: data.cod_sap,
-            origem: data.origem,
-            destino: data.destino,
-            veiculo: data.veiculo,
-            fluxo: data.fluxo,
-            trip: data.trip
-        });
+
+        // Step 3: Calculate QME
+        console.log('\n📊 Step 3: Calculating QME...');
         showToast('⏳ Processando simulação QME...', 'info');
-        
+
         const qmeResponse = await window.pywebview.api.calculate_qme(data);
-        
+
         if (qmeResponse.status === 'error') {
             showToast('❌ Erro QME: ' + qmeResponse.message, 'error');
             return;
         }
-        
+
         // Display QME results in dashboard
         displayResults(qmeResponse);
         showToast('✅ Cálculo QME concluído!', 'success');
-        
-        // Display Viajante results in the frontend
-        displayViajanteResults(viajanteResponse.results);
-        
-        // Calculate and update weekly trips using QME and Viajante data
+
+        // Display Viajante results (only in standard mode)
+        if (viajanteResponse) {
+            displayViajanteResults(viajanteResponse.results);
+        }
+
+        // Update weekly trips in breakdown table
         console.log('\n📊 Step 4: Updating weekly trips in breakdown table...');
         updateWeeklyTrips(qmeResponse, viajanteResponse);
-        
-        // Switch to dashboard tab automatically to show all results
+
+        // Switch to dashboard
         console.log('\n✅ All processing complete! Switching to dashboard...');
         switchTab('dash');
         
@@ -701,13 +796,13 @@ function displayResults(response) {
         custoSemanalRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total">R$ -</td>';
         breakdownCombinedBody.appendChild(custoSemanalRow);
 
-        // Pedágio row — single column per month (no AS IS / TO BE split)
+        // Pedágio row — AS IS and TO BE per month (trips × pedagio per trip)
         const pedagioRow = document.createElement('tr');
         pedagioRow.innerHTML = `<td class="td-label">Pedágio</td>`;
         months.forEach(() => {
-            pedagioRow.innerHTML += '<td class="td-breakdown-as" colspan="2">R$ -</td>';
+            pedagioRow.innerHTML += '<td class="td-breakdown-as">R$ -</td><td class="td-breakdown-to">R$ -</td>';
         });
-        pedagioRow.innerHTML += '<td class="td-breakdown-total" colspan="2">R$ -</td>';
+        pedagioRow.innerHTML += '<td class="td-breakdown-total">R$ -</td><td class="td-breakdown-total">R$ -</td>';
         breakdownCombinedBody.appendChild(pedagioRow);
         
         // Economia mensal de frete row — single column per month (savings = AS IS − TO BE)
@@ -999,8 +1094,8 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
     console.log('QME Response:', qmeResponse);
     console.log('Viajante Response:', viajanteResponse);
     
-    if (!qmeResponse || !viajanteResponse) {
-        console.warn('Cannot calculate trips: missing QME or Viajante data');
+    if (!qmeResponse) {
+        console.warn('Cannot calculate trips: missing QME data');
         return;
     }
     
@@ -1125,14 +1220,16 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
         
         // ── Freight cost rows ──────────────────────────────────────────
         const freight = weeklyTrips.freight;
-        if (freight && freight.status === 'success') {
-            const tarifaReal = freight.tarifa_real || 0;
-            const monthlyFreightAsis = freight.monthly_freight_asis || {};
-            const monthlyFreightTobe = freight.monthly_freight_tobe || {};
+        if (freight) {
             const fmt = (v) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            
-            // Row 2 — Custo Mensal de Frete = trips × tarifa_real (per month, AS IS vs TO BE)
-            if (rows.length >= 3) {
+            const freightSuccess = freight.status === 'success';
+            const monthlyFreightAsis = freightSuccess ? (freight.monthly_freight_asis || {}) : {};
+            const monthlyFreightTobe = freightSuccess ? (freight.monthly_freight_tobe || {}) : {};
+            // Pedágio is always computed by the backend (trips × pedagio per trip)
+            const pedagioTobe = freight.monthly_pedagio_tobe || {};
+
+            // Row 2 — Custo Mensal de Frete (only when tarifa lookup succeeded)
+            if (freightSuccess && rows.length >= 3) {
                 const cCells = rows[2].getElementsByTagName('td');
                 let totalAsis = 0;
                 let totalTobe = 0;
@@ -1146,28 +1243,36 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
                     if (ci + 1 < cCells.length) cCells[ci + 1].textContent = fmt(tobe);
                     ci += 2;
                 });
-                // Total annual cells
                 if (cCells.length >= 2) {
                     cCells[cCells.length - 2].textContent = fmt(totalAsis);
                     cCells[cCells.length - 1].textContent = fmt(totalTobe);
                 }
             }
-            
-            // Row 3 — Pedágio: single cell per month (colspan=2), show TO BE pedagio
-            const pedagioTobe = freight.monthly_pedagio_tobe || {};
+
+            // Row 3 — Pedágio: AS IS and TO BE (trips × pedagio per trip)
+            const pedagioAsis = freight.monthly_pedagio_asis || {};
             if (rows.length >= 4) {
                 const pCells = rows[3].getElementsByTagName('td');
-                let totalPedagio = 0;
-                monthKeys.forEach((month, idx) => {
-                    const val = pedagioTobe[month] || 0;
-                    totalPedagio += val;
-                    if (idx + 1 < pCells.length) pCells[idx + 1].textContent = fmt(val);
+                let totalPedagioAsis = 0;
+                let totalPedagioTobe = 0;
+                let pi = 1;
+                monthKeys.forEach(month => {
+                    const asis = pedagioAsis[month] || 0;
+                    const tobe = pedagioTobe[month] || 0;
+                    totalPedagioAsis += asis;
+                    totalPedagioTobe += tobe;
+                    if (pi < pCells.length) pCells[pi].textContent = fmt(asis);
+                    if (pi + 1 < pCells.length) pCells[pi + 1].textContent = fmt(tobe);
+                    pi += 2;
                 });
-                if (pCells.length >= 14) pCells[13].textContent = fmt(totalPedagio);
+                if (pCells.length >= 2) {
+                    pCells[pCells.length - 2].textContent = fmt(totalPedagioAsis);
+                    pCells[pCells.length - 1].textContent = fmt(totalPedagioTobe);
+                }
             }
 
-            // Row 4 — Economia Mensal de Frete: single cell per month (AS IS − TO BE)
-            if (rows.length >= 5) {
+            // Row 4 — Economia Mensal de Frete (only when tarifa lookup succeeded)
+            if (freightSuccess && rows.length >= 5) {
                 const ctCells = rows[4].getElementsByTagName('td');
                 let totalSaving = 0;
                 monthKeys.forEach((month, idx) => {
@@ -1178,7 +1283,7 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
                 if (ctCells.length >= 14) ctCells[13].textContent = fmt(totalSaving);
             }
 
-            // Row 5 — TOTAL SEMANAL = Frete TO BE + Pedágio TO BE (single cell per month)
+            // Row 5 — TOTAL SEMANAL = Frete TO BE + Pedágio TO BE
             if (rows.length >= 6) {
                 const tsCells = rows[5].getElementsByTagName('td');
                 let totalSemanal = 0;
@@ -1190,7 +1295,7 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
                 if (tsCells.length >= 14) tsCells[13].textContent = fmt(totalSemanal);
             }
 
-            // Row 6 — TOTAL MENSAL = TOTAL SEMANAL × 4 (single cell per month)
+            // Row 6 — TOTAL MENSAL = TOTAL SEMANAL × 4
             if (rows.length >= 7) {
                 const tmCells = rows[6].getElementsByTagName('td');
                 let totalMensal = 0;
@@ -1201,31 +1306,32 @@ function updateWeeklyTrips(qmeResponse, viajanteResponse) {
                 });
                 if (tmCells.length >= 14) tmCells[13].textContent = fmt(totalMensal);
             }
-            
-            // Update savings row in monthly summary table
-            const monthlyBodyEl = document.getElementById('dashboard-monthly-body');
-            if (monthlyBodyEl) {
-                const savingRowEl = monthlyBodyEl.querySelector('tr:last-child');
-                if (savingRowEl) {
-                    const sCells = savingRowEl.getElementsByTagName('td');
-                    let totalSaving = 0;
-                    let si = 1;
-                    monthKeys.forEach(month => {
-                        const saving = (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0);
-                        totalSaving += saving;
-                        if (si < sCells.length) sCells[si].textContent = fmt(saving);
-                        si++;
-                    });
-                    if (sCells.length > 0) sCells[sCells.length - 1].textContent = fmt(totalSaving);
-                }
-            }
 
-            // Update "Economia 12 Meses" summary card with the real freight saving total
-            const savingsCard = document.getElementById('dashboard-summary-savings');
-            if (savingsCard) {
-                const annualSaving = monthKeys.reduce((sum, month) =>
-                    sum + (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0), 0);
-                savingsCard.innerText = annualSaving.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            // Savings summary rows (only when freight succeeded)
+            if (freightSuccess) {
+                const monthlyBodyEl = document.getElementById('dashboard-monthly-body');
+                if (monthlyBodyEl) {
+                    const savingRowEl = monthlyBodyEl.querySelector('tr:last-child');
+                    if (savingRowEl) {
+                        const sCells = savingRowEl.getElementsByTagName('td');
+                        let totalSaving = 0;
+                        let si = 1;
+                        monthKeys.forEach(month => {
+                            const saving = (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0);
+                            totalSaving += saving;
+                            if (si < sCells.length) sCells[si].textContent = fmt(saving);
+                            si++;
+                        });
+                        if (sCells.length > 0) sCells[sCells.length - 1].textContent = fmt(totalSaving);
+                    }
+                }
+
+                const savingsCard = document.getElementById('dashboard-summary-savings');
+                if (savingsCard) {
+                    const annualSaving = monthKeys.reduce((sum, month) =>
+                        sum + (monthlyFreightAsis[month] || 0) - (monthlyFreightTobe[month] || 0), 0);
+                    savingsCard.innerText = annualSaving.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                }
             }
 
             console.log('✅ Freight costs updated in breakdown table');
@@ -1499,3 +1605,34 @@ document.addEventListener('DOMContentLoaded', () => {
         filterInput.addEventListener('input', filterPNTable);
     }
 });
+
+// ── Zoom support (Ctrl+scroll and Ctrl++/-/0) ──────────────────────────
+(function initZoom() {
+    let currentZoom = 0.9;
+    const STEP = 0.1;
+    const MIN  = 0.5;
+    const MAX  = 2.5;
+
+    function applyZoom(z) {
+        currentZoom = Math.min(MAX, Math.max(MIN, z));
+        document.documentElement.style.zoom = currentZoom;
+    }
+
+    // Apply default zoom immediately
+    applyZoom(currentZoom);
+
+    // Ctrl + mouse-wheel
+    window.addEventListener('wheel', function(e) {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        applyZoom(currentZoom + (e.deltaY < 0 ? STEP : -STEP));
+    }, { passive: false });
+
+    // Ctrl + / Ctrl - / Ctrl 0
+    window.addEventListener('keydown', function(e) {
+        if (!e.ctrlKey) return;
+        if (e.key === '+' || e.key === '=' ) { e.preventDefault(); applyZoom(currentZoom + STEP); }
+        else if (e.key === '-')             { e.preventDefault(); applyZoom(currentZoom - STEP); }
+        else if (e.key === '0')             { e.preventDefault(); applyZoom(0.9); }
+    });
+})();

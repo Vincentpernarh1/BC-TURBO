@@ -57,6 +57,26 @@ class SAPLookup:
             print(f"  Warning: Parquet conversion failed ({e}), will use Excel")
             return False
     
+    @staticmethod
+    def _normalize_fluxo(value):
+        """Normaliza valores de Modalidade/Fluxo para nomes canônicos.
+        
+        Returns:
+            'Milk Run', 'Line Haul', ou o valor original stripped.
+        """
+        if not value or str(value).strip().lower() in ('nan', 'none', ''):
+            return ''
+        v = str(value).strip().upper().replace('-', ' ').replace('_', ' ')
+        # Remove extra spaces
+        v = ' '.join(v.split())
+        milk_run_variants = {'MILK RUN', 'MILKRUN', 'MK RUN', 'MK', 'MILK'}
+        line_haul_variants = {'LINE HAUL', 'LINEHAUL', 'LINE-HAUL', 'LH', 'LINE HALL'}
+        if v in milk_run_variants:
+            return 'Milk Run'
+        if v in line_haul_variants:
+            return 'Line Haul'
+        return str(value).strip()
+
     def _clean_data(self, df, is_pfep=True):
         """Limpa e otimiza os dados do DataFrame"""
         if is_pfep:
@@ -73,6 +93,10 @@ class SAPLookup:
                 
             if 'Estado Fornecedor' in df.columns:
                 df['Estado Fornecedor'] = df['Estado Fornecedor'].astype(str).str.strip()
+                
+            if 'Modalidade' in df.columns:
+                df['Fluxo'] = df['Modalidade'].apply(self._normalize_fluxo)
+                
         else:
             # Limpa TDC - Codigo IMS - Origem e Codigo IMS Destino
             if 'Codigo IMS - Origem' in df.columns:
@@ -99,7 +123,7 @@ class SAPLookup:
         
         # Define colunas específicas para ler (ajuste conforme necessário)
         pfep_columns = [
-            "Part Number","Pecas por semana","COD IMS","COD SAP", "Nome Fornecedor", "Cidade Fornecedor", "Estado Fornecedor",
+            "Part Number","Pecas por semana","COD IMS","COD SAP", "Nome Fornecedor", "Cidade Fornecedor", "Estado Fornecedor","Modalidade",
             "Metro Cúbico Semanal","COD Embalagem","QME (Pecas/Embalagem)"
         ]
         
@@ -553,55 +577,71 @@ class SAPLookup:
                     'nprc_count': len(nprc_result) if nprc_result is not None else 0
                 }
             
+            # Determina fluxo normalizado do PFEP para decidir modo de cálculo
+            normalized_fluxo = ''
+            is_milk_run_or_line_haul = False
+            if pfep_result and 'Fluxo' in pfep_result:
+                normalized_fluxo = self._normalize_fluxo(pfep_result['Fluxo'])
+                is_milk_run_or_line_haul = normalized_fluxo in ('Milk Run', 'Line Haul')
+
             # Busca nos dados TDC usando COD IMS Origem e Destino
             tdc_result = None
             tdc_needs_destino = False
             crossdock_value = None
             tdc_options = None  # Para armazenar múltiplas opções de TDC
-            
-            # Limpa e prepara o código IMS Destino
-            cod_ims_destino = None
-            if cidade_destino and str(cidade_destino).strip():
-                # Tenta converter cidade_destino para IMS code (se for numérico)
-                destino_str = str(cidade_destino).strip().replace('.0', '')
-                if destino_str and destino_str.isdigit():
-                    cod_ims_destino = destino_str
-            
-            if self.tdc_data is not None and cod_ims_for_tdc:
-                # Verifica se temos AMBOS origem e destino IMS
-                if cod_ims_destino:
-                    # Filtra TDC por AMBOS: Codigo IMS - Origem E Codigo IMS Destino
-                    mask = (
-                        (self.tdc_data['Codigo IMS - Origem'].astype(str).str.strip() == cod_ims_for_tdc) &
-                        (self.tdc_data['Codigo IMS Destino'].astype(str).str.strip() == cod_ims_destino)
-                    )
-                    tdc_match = self.tdc_data[mask]
-                    
-                    # print(f"TDC lookup for Origem={cod_ims_for_tdc} AND Destino={cod_ims_destino}: found {len(tdc_match)} matches")
-                    
-                    if not tdc_match.empty:
-                        # Retorna a primeira linha como resultado padrão
-                        tdc_result = tdc_match.iloc[0].to_dict()
+
+            if is_milk_run_or_line_haul:
+                # TDC não é necessário para Milk Run / Line Haul — usa opções fixas
+                print(f"  Fluxo '{normalized_fluxo}' detectado: ignorando TDC, retornando opções fixas (Carreta / 74 m³)")
+                tdc_options = {
+                    'Transportadora': [],          # lista vazia = campo de texto livre
+                    'Veiculo': ['Carreta'],
+                    'Fluxo': ['Milk Run', 'Line Haul'],
+                    'Trip': ['Round Trip (RT)', 'One Way (OW)'],
+                    'all_rows': []
+                }
+            else:
+                # Limpa e prepara o código IMS Destino
+                cod_ims_destino = None
+                if cidade_destino and str(cidade_destino).strip():
+                    # Tenta converter cidade_destino para IMS code (se for numérico)
+                    destino_str = str(cidade_destino).strip().replace('.0', '')
+                    if destino_str and destino_str.isdigit():
+                        cod_ims_destino = destino_str
+                
+                if self.tdc_data is not None and cod_ims_for_tdc:
+                    # Verifica se temos AMBOS origem e destino IMS
+                    if cod_ims_destino:
+                        # Filtra TDC por AMBOS: Codigo IMS - Origem E Codigo IMS Destino
+                        mask = (
+                            (self.tdc_data['Codigo IMS - Origem'].astype(str).str.strip() == cod_ims_for_tdc) &
+                            (self.tdc_data['Codigo IMS Destino'].astype(str).str.strip() == cod_ims_destino)
+                        )
+                        tdc_match = self.tdc_data[mask]
                         
-                        # Extrai opções únicas para dropdowns
-                        tdc_options = {
-                            'Transportadora': tdc_match['Transportadora'].dropna().unique().tolist() if 'Transportadora' in tdc_match.columns else [],
-                            'Veiculo': tdc_match['Veiculo'].dropna().unique().tolist() if 'Veiculo' in tdc_match.columns else [],
-                            'Fluxo': tdc_match['Fluxo Viagem'].dropna().unique().tolist() if 'Fluxo Viagem' in tdc_match.columns else [],
-                            'Trip': tdc_match['Trip'].dropna().unique().tolist() if 'Trip' in tdc_match.columns else [],
-                            'all_rows': tdc_match.to_dict('records')  # Todas as linhas para referência
-                        }
-                else:
-                    # Destino IMS não foi fornecido - sinaliza que é necessário
-                    tdc_needs_destino = True
-                    print(f"TDC lookup: Destino IMS required. Only Origem={cod_ims_for_tdc} available.")
-                    
-                    # Busca CrossDock do TDC apenas com origem (para mostrar ao usuário)
-                    mask = (self.tdc_data['Codigo IMS - Origem'].astype(str).str.strip() == cod_ims_for_tdc)
-                    tdc_match = self.tdc_data[mask]
-                    
-                    if not tdc_match.empty and 'CrossDock' in tdc_match.columns:
-                        crossdock_value = tdc_match.iloc[0].get('CrossDock', None)
+                        if not tdc_match.empty:
+                            # Retorna a primeira linha como resultado padrão
+                            tdc_result = tdc_match.iloc[0].to_dict()
+                            
+                            # Extrai opções únicas para dropdowns
+                            tdc_options = {
+                                'Transportadora': tdc_match['Transportadora'].dropna().unique().tolist() if 'Transportadora' in tdc_match.columns else [],
+                                'Veiculo': tdc_match['Veiculo'].dropna().unique().tolist() if 'Veiculo' in tdc_match.columns else [],
+                                'Fluxo': tdc_match['Fluxo Viagem'].dropna().unique().tolist() if 'Fluxo Viagem' in tdc_match.columns else [],
+                                'Trip': tdc_match['Trip'].dropna().unique().tolist() if 'Trip' in tdc_match.columns else [],
+                                'all_rows': tdc_match.to_dict('records')  # Todas as linhas para referência
+                            }
+                    else:
+                        # Destino IMS não foi fornecido - sinaliza que é necessário
+                        tdc_needs_destino = True
+                        print(f"TDC lookup: Destino IMS required. Only Origem={cod_ims_for_tdc} available.")
+                        
+                        # Busca CrossDock do TDC apenas com origem (para mostrar ao usuário)
+                        mask = (self.tdc_data['Codigo IMS - Origem'].astype(str).str.strip() == cod_ims_for_tdc)
+                        tdc_match = self.tdc_data[mask]
+                        
+                        if not tdc_match.empty and 'CrossDock' in tdc_match.columns:
+                            crossdock_value = tdc_match.iloc[0].get('CrossDock', None)
 
             
             # Combina resultados PFEP e TDC
@@ -620,7 +660,9 @@ class SAPLookup:
                     "data": combined_data,
                     "filter_used": filter_column,
                     "tdc_needs_destino": tdc_needs_destino,
-                    "cod_ims_origem": cod_ims_for_tdc
+                    "cod_ims_origem": cod_ims_for_tdc,
+                    "is_milk_run_or_line_haul": is_milk_run_or_line_haul,
+                    "normalized_fluxo": normalized_fluxo
                 }
                 
                 # Adiciona opções de TDC se disponíveis
@@ -648,7 +690,9 @@ class SAPLookup:
                     "data": combined_data,
                     "filter_used": filter_column,
                     "tdc_needs_destino": True,
-                    "cod_ims_origem": cod_ims_for_tdc
+                    "cod_ims_origem": cod_ims_for_tdc,
+                    "is_milk_run_or_line_haul": is_milk_run_or_line_haul,
+                    "normalized_fluxo": normalized_fluxo
                 }
                 
                 # Adiciona CrossDock se disponível
