@@ -23,6 +23,7 @@ class SAPLookup:
         parquet_file = Path(parquet_path)
         excel_file = Path(excel_path)
         
+        
         # Se Parquet não existe, precisa converter
         if not parquet_file.exists():
             return True

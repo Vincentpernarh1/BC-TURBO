@@ -655,10 +655,24 @@ class Api:
             print(f"  Matched Tarifa fluxo folder: '{matched_fluxo}'")
 
             # RT / OW weights — computed once, used for both freight and pedagio
-            rt_pct = float(rt_percent)
-            ow_pct = 100.0 - rt_pct
-            rt_w   = rt_pct / 100.0   # e.g. 0.67
-            ow_w   = ow_pct / 100.0   # e.g. 0.33
+            # Logic depends on trip selection:
+            # - If trip is "OW", the percentage entered is for OW, and RT = 100 - OW
+            # - If trip is "RT" (or other), the percentage entered is for RT, and OW = 100 - RT
+            trip_upper = str(trip).strip().upper() if trip else ''
+            is_ow_trip = trip_upper == 'OW'
+            
+            if is_ow_trip:
+                # Percentage input is for OW, calculate RT as remainder
+                ow_pct = float(rt_percent)
+                rt_pct = 100.0 - ow_pct
+            else:
+                # Percentage input is for RT, calculate OW as remainder (current behavior)
+                rt_pct = float(rt_percent)
+                ow_pct = 100.0 - rt_pct
+            
+            rt_w = rt_pct / 100.0
+            ow_w = ow_pct / 100.0
+            print(f"  Trip: '{trip}' (OW mode: {is_ow_trip})")
             print(f"  RT%={rt_pct:.1f}  OW%={ow_pct:.1f}")
 
             if matched_fluxo:
